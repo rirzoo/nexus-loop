@@ -13,6 +13,9 @@ from . import cohorts, standard, detect_faults, detect_decoys
 
 
 def build_report(kit_dir: str, team: str, sample: bool = False) -> dict:
+    """Load a kit and build the report. Loading is separated from computing so the
+    hardening harness can drive compute_report on transformed in-memory corpora
+    (the sealed run's day/tenant/slice shifts) without rewriting the gz files."""
     catalog = paths.load_catalog(kit_dir)
     manifest = paths.load_manifest(kit_dir)
     corpus = paths.corpus_dir(kit_dir, sample=sample)
@@ -26,14 +29,21 @@ def build_report(kit_dir: str, team: str, sample: bool = False) -> dict:
     config_rows = io_corpus.read_config_timeline(paths.corpus_dir(kit_dir, sample=False))
     labels = io_corpus.read_labels(kit_dir)
 
-    # ---- metrics (honesty spine) ----
     # Calibration describes the judge globally and its human labels reference specific
     # session_ids that mostly fall outside the 5% sample, so it is always computed
     # against the full-corpus sessions, never the sample slice.
-    if sample:
-        cal_sessions = io_corpus.read_sessions(paths.corpus_dir(kit_dir, sample=False))
-    else:
-        cal_sessions = sessions
+    cal_sessions = (io_corpus.read_sessions(paths.corpus_dir(kit_dir, sample=False))
+                    if sample else sessions)
+    suffix = " (5% sample)" if sample else ""
+    return compute_report(team, manifest["corpus_variant"], catalog, sessions,
+                          tool_calls, kb_lookups, config_rows, labels, cal_sessions,
+                          notes_suffix=suffix)
+
+
+def compute_report(team, corpus_variant, catalog, sessions, tool_calls, kb_lookups,
+                   config_rows, labels, cal_sessions, notes_suffix="") -> dict:
+    """Pure compute over already-loaded (and possibly transformed) data."""
+    # ---- metrics (honesty spine) ----
     calibration = metrics.calibrate_quality(cal_sessions, labels["rubric"])
     m = metrics.author_metrics(sessions, tool_calls, kb_lookups, calibration)
 
@@ -77,11 +87,11 @@ def build_report(kit_dir: str, team: str, sample: bool = False) -> dict:
              "fabricated judged metric since the kit ships no abandonment-reason "
              "labels to calibrate against. C2 cardinality refusal is emitted for "
              "honesty even though score.py does not currently check it. Detection is "
-             "signature-based over config_timeline + cohort structure, no hardcoded "
-             "days/tenants. corpus=%s%s." % (manifest["corpus_variant"],
-                                             " (5% sample)" if sample else ""))
+             "anomaly-first: cohorts and change-points come from data, config_timeline "
+             "is used only to attribute, no hardcoded days/tenants. corpus=%s%s."
+             % (corpus_variant, notes_suffix))
 
-    return report.assemble(team, manifest["corpus_variant"], m, g, findings,
+    return report.assemble(team, corpus_variant, m, g, findings,
                            diagnoses, standard=std, system_notes=notes)
 
 

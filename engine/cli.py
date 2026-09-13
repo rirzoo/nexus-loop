@@ -47,6 +47,10 @@ def build_report(kit_dir: str, team: str, sample: bool = False) -> dict:
         g.append(c2)
 
     # ---- detection (findings + diagnoses) ----
+    # Anomaly-first: cohorts are enumerated from data and change-points detected from
+    # each cohort's own series; config_timeline is used only to attribute. The classified
+    # detectors run first; detect_unexplained is the open-world safety net for cohorts
+    # none of them explained (dedup: skip cohorts already covered by a classified finding).
     findings, diagnoses = [], []
     std = standard.mine_standard(sessions)
     for detect in (detect_faults.detect_kb_gap,
@@ -55,6 +59,12 @@ def build_report(kit_dir: str, team: str, sample: bool = False) -> dict:
         fs, ds = detect(sessions, tool_calls, kb_lookups, config_rows, std)
         findings += fs
         diagnoses += ds
+    covered = {(f["tenant"], f["cohort"].get("intent")) for f in findings
+               if f["cohort"].get("intent")}
+    fs, ds = detect_faults.detect_unexplained(
+        sessions, tool_calls, kb_lookups, config_rows, std, covered)
+    findings += fs
+    diagnoses += ds
     for detect in (detect_decoys.detect_traffic_mix,
                    detect_decoys.detect_load_event,
                    detect_decoys.detect_judge_boundary):

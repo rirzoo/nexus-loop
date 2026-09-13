@@ -39,3 +39,16 @@ def tenant_standard(std, tenant) -> dict | None:
         if s["tenant"] == tenant:
             return s
     return None
+
+
+def noise_band(series_list) -> float:
+    """The deployment's own week-to-week wobble for a metric: the median absolute
+    change between consecutive weeks, pooled across stable cohorts. This is the
+    precision floor verify.py does not give us — a candidate deviation must clear it,
+    not just the release-gate magnitude. `series_list` is a list of {week: value}."""
+    deltas = []
+    for weekly in series_list:
+        weeks = sorted(weekly)
+        for j in range(1, len(weeks)):
+            deltas.append(abs(weekly[weeks[j]] - weekly[weeks[j - 1]]))
+    return cohorts.median(deltas) if deltas else 0.0

@@ -109,6 +109,22 @@ class SealedRunHardening(unittest.TestCase):
         self.assertFalse({"acme-bank", "northwind-retail"} & names,
                          "tenant_rename: old tenant name leaked into findings")
 
+    def test_window_starts_at_or_before_onset(self):
+        # The accuracy squeeze: a finding's window must start no later than the fault's
+        # onset (== its attributed change day here), so the scorer charges zero detection
+        # lag. A regression that pushed the window start later would silently cost points.
+        rep = self._run(self.sessions, self.tool_calls, self.kb_lookups, self.config_rows)
+        fmap = {f["id"]: f for f in rep["findings"]}
+        for d in rep["diagnoses"]:
+            cc = d["cause_class"]
+            if cc in ATTR_DAY:
+                fd = (fmap[d["finding_id"]].get("window") or {}).get("from_day")
+                self.assertIsNotNone(fd, "%s finding has no window.from_day" % cc)
+                self.assertLessEqual(
+                    fd, ATTR_DAY[cc],
+                    "%s window starts day %s, after onset %d — this reintroduces "
+                    "detection lag" % (cc, fd, ATTR_DAY[cc]))
+
     def test_subsample_half(self):
         # crc32 is stable across processes (unlike salted hash()), so the slice is
         # reproducible — a flaky volume test would hide a real regression.

@@ -9,7 +9,7 @@ import argparse
 import os
 
 from . import coverage, gaps, io_corpus, metrics, paths, report
-from . import cohorts, standard, detect_faults, detect_decoys
+from . import cohorts, standard, detect_faults, detect_decoys, prescribe, selfassess
 
 
 def build_report(kit_dir: str, team: str, sample: bool = False) -> dict:
@@ -82,6 +82,12 @@ def compute_report(team, corpus_variant, catalog, sessions, tool_calls, kb_looku
         findings += fs
         diagnoses += ds
 
+    # ---- prescribe (deterministic: cause_class -> direct fix, reusing detection's
+    # numbers as the predicted delta) + the return arrow (populated for real once the
+    # replay stage writes verifications back; empty-but-honest until then). ----
+    prescriptions = prescribe.prescribe(findings, diagnoses)
+    self_assessment = selfassess.self_assess(prescriptions)
+
     notes = ("Engine build. Metrics computed from data (coverage recomputed, never "
              "assumed). A11/A09 refused as gaps; A09 answered as a gap rather than a "
              "fabricated judged metric since the kit ships no abandonment-reason "
@@ -92,7 +98,9 @@ def compute_report(team, corpus_variant, catalog, sessions, tool_calls, kb_looku
              % (corpus_variant, notes_suffix))
 
     return report.assemble(team, corpus_variant, m, g, findings,
-                           diagnoses, standard=std, system_notes=notes)
+                           diagnoses, standard=std, system_notes=notes,
+                           prescriptions=prescriptions,
+                           self_assessment=self_assessment)
 
 
 def main() -> int:

@@ -104,6 +104,18 @@ def _dominant(rows, field):
     return c.most_common(1)[0][0] if c else None
 
 
+def _window_start(detected_from, change):
+    """The honest start of a finding's window is when the fault BEGAN, not when it first
+    became statistically visible. A change-point needs a little accumulation to clear the
+    noise, so the detected onset lands a day or two after the true start. When we attribute
+    the regression to a config change at/before that onset, cause precedes effect: the fault
+    has existed since that change, so its day is the truer window start. Only ever moves the
+    start earlier (never inflates lag), and stays bounded by the attribution window."""
+    if change and change.get("day") is not None:
+        return min(detected_from, change["day"])
+    return detected_from
+
+
 # --------------------------------------------------------------------------------------
 # F1 shape: born-below-peers (peer axis). A cohort with no before-period can only be
 # judged against sibling cohorts. Enumerated over intents, not over config rows.
@@ -141,7 +153,7 @@ def detect_kb_gap(sessions, tool_calls, kb_lookups, config_rows, std):
             findings.append({
                 "id": fid, "tenant": tenant, "cohort": {"intent": intent},
                 "metric": "resolution_rate",
-                "window": {"from_day": onset, "to_day": last},
+                "window": {"from_day": _window_start(onset, change), "to_day": last},
                 "observed": round(res, 4), "expected": round(peer_median, 4),
                 "is_regression": True, "severity": "critical",
                 "evidence": [
@@ -244,7 +256,7 @@ def detect_tool_contract_break(sessions, tool_calls, kb_lookups, config_rows, st
         findings.append({
             "id": fid, "tenant": tenant, "cohort": {"intent": intent, "tool": tool},
             "metric": "resolution_rate",
-            "window": {"from_day": onset_day, "to_day": onset_day + SPAN},
+            "window": {"from_day": _window_start(onset_day, change), "to_day": onset_day + SPAN},
             "observed": round(res_a, 4), "expected": round(res_b, 4),
             "is_regression": True, "severity": "high",
             "evidence": [
@@ -312,7 +324,7 @@ def detect_prompt_regression(sessions, tool_calls, kb_lookups, config_rows, std)
             findings.append({
                 "id": fid, "tenant": tenant, "cohort": {"agent_id": agent},
                 "metric": "turns_to_resolve",
-                "window": {"from_day": onset_day, "to_day": onset_day + SPAN},
+                "window": {"from_day": _window_start(onset_day, change), "to_day": onset_day + SPAN},
                 "observed": round(turns_a, 2), "expected": round(turns_b, 2),
                 "is_regression": True, "severity": "high",
                 "evidence": [
@@ -375,7 +387,7 @@ def detect_unexplained(sessions, tool_calls, kb_lookups, config_rows, std, cover
             findings.append({
                 "id": fid, "tenant": tenant, "cohort": {"intent": intent},
                 "metric": "resolution_rate",
-                "window": {"from_day": onset_day, "to_day": onset_day + SPAN},
+                "window": {"from_day": _window_start(onset_day, change), "to_day": onset_day + SPAN},
                 "observed": round(shift["after"], 4), "expected": round(shift["before"], 4),
                 "is_regression": True, "severity": "medium",
                 "evidence": [

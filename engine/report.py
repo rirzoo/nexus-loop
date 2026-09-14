@@ -6,7 +6,8 @@ import json
 
 
 def assemble(team, corpus_variant, metrics, gaps, findings, diagnoses,
-             standard=None, system_notes="") -> dict:
+             standard=None, system_notes="", prescriptions=None, verifications=None,
+             self_assessment=None) -> dict:
     # Guard: finding ids must be unique, and every diagnosis must point at a real
     # finding (the scorer only credits linked diagnoses).
     fids = [f["id"] for f in findings]
@@ -15,6 +16,13 @@ def assemble(team, corpus_variant, metrics, gaps, findings, diagnoses,
     for d in diagnoses:
         assert d["finding_id"] in fidset, (
             "diagnosis %s references missing finding %s" % (d["id"], d["finding_id"]))
+    # Guard: every prescription must link a real diagnosis (the scorer only credits
+    # linked prescriptions), so a broken link fails loudly here rather than scoring 0.
+    prescriptions = prescriptions or []
+    dids = {d["id"] for d in diagnoses}
+    for p in prescriptions:
+        assert p["diagnosis_id"] in dids, (
+            "prescription %s references missing diagnosis %s" % (p["id"], p["diagnosis_id"]))
 
     return {
         "team": team,
@@ -26,10 +34,10 @@ def assemble(team, corpus_variant, metrics, gaps, findings, diagnoses,
         "standard": standard or [],
         "findings": findings,
         "diagnoses": diagnoses,
-        "prescriptions": [],
-        "verifications": [],
+        "prescriptions": prescriptions,
+        "verifications": verifications or [],
         "gaps": gaps,
-        "self_assessment": {"cycles": 0, "prescription_accuracy": {}},
+        "self_assessment": self_assessment or {"cycles": 0, "prescription_accuracy": {}},
     }
 
 

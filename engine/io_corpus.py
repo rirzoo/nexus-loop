@@ -44,12 +44,31 @@ def collect_steps(corpus: str, keep_types) -> dict:
     return out
 
 
+_CONFIG_COLS = ("date", "tenant", "kind", "target", "from_value", "to_value", "note")
+
+
 def read_config_timeline(corpus: str) -> list:
-    """Each row: day(int), date, tenant, kind, target, from_value, to_value, note."""
+    """Each row: day(int), date, tenant, kind, target, from_value, to_value, note.
+
+    config_timeline drives attribution only (never detection), so it is degradable: a
+    missing file yields [] (findings still emit with null attribution), and a row with a
+    missing/non-int `day` is skipped rather than crashing the whole run. Missing string
+    columns are defaulted to "" so evidence formatting never KeyErrors. All of this is a
+    no-op on the well-formed practice corpus; preflight reports the inconsistencies."""
+    path = os.path.join(corpus, "config_timeline.csv")
+    if not os.path.exists(path):
+        return []
     out = []
-    with open(os.path.join(corpus, "config_timeline.csv"), newline="") as f:
+    with open(path, newline="") as f:
         for row in csv.DictReader(f):
-            row["day"] = int(row["day"])
+            try:
+                row["day"] = int(row["day"])
+            except (TypeError, ValueError, KeyError):
+                continue  # a bad day-row cannot be placed on the timeline; drop it
+            for c in _CONFIG_COLS:
+                row.setdefault(c, "")
+                if row[c] is None:
+                    row[c] = ""
             out.append(row)
     return out
 

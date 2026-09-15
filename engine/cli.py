@@ -7,12 +7,13 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 
-from . import coverage, gaps, io_corpus, metrics, paths, report
+from . import coverage, gaps, io_corpus, metrics, paths, preflight, report
 from . import cohorts, standard, detect_faults, detect_decoys, prescribe, selfassess
 
 
-def build_report(kit_dir: str, team: str, sample: bool = False) -> dict:
+def build_report(kit_dir: str, team: str, sample: bool = False, warnings=None) -> dict:
     """Load a kit and build the report. Loading is separated from computing so the
     hardening harness can drive compute_report on transformed in-memory corpora
     (the sealed run's day/tenant/slice shifts) without rewriting the gz files."""
@@ -37,11 +38,11 @@ def build_report(kit_dir: str, team: str, sample: bool = False) -> dict:
     suffix = " (5% sample)" if sample else ""
     return compute_report(team, manifest["corpus_variant"], catalog, sessions,
                           tool_calls, kb_lookups, config_rows, labels, cal_sessions,
-                          notes_suffix=suffix)
+                          notes_suffix=suffix, warnings=warnings)
 
 
 def compute_report(team, corpus_variant, catalog, sessions, tool_calls, kb_lookups,
-                   config_rows, labels, cal_sessions, notes_suffix="") -> dict:
+                   config_rows, labels, cal_sessions, notes_suffix="", warnings=None) -> dict:
     """Pure compute over already-loaded (and possibly transformed) data."""
     # ---- metrics (honesty spine) ----
     calibration = metrics.calibrate_quality(cal_sessions, labels["rubric"])
@@ -96,6 +97,9 @@ def compute_report(team, corpus_variant, catalog, sessions, tool_calls, kb_looku
              "anomaly-first: cohorts and change-points come from data, config_timeline "
              "is used only to attribute, no hardcoded days/tenants. corpus=%s%s."
              % (corpus_variant, notes_suffix))
+    warn_note = preflight.summarize_warnings(warnings or [])
+    if warn_note:
+        notes = (notes + " " + warn_note).strip()
 
     return report.assemble(team, corpus_variant, m, g, findings,
                            diagnoses, standard=std, system_notes=notes,
@@ -111,7 +115,19 @@ def main() -> int:
     ap.add_argument("--sample", action="store_true")
     a = ap.parse_args()
 
-    rep = build_report(a.kit, a.team, sample=a.sample)
+    # Preflight: validate the (possibly sealed) kit before reading it for real. Fatal
+    # issues stop the run with a clear diagnostic instead of a mid-run stack trace;
+    # warnings are surfaced and the engine degrades around them.
+    fatal, warnings = preflight.validate_kit(a.kit, sample=a.sample)
+    for w in warnings:
+        print("preflight WARNING: " + w, file=sys.stderr)
+    if fatal:
+        print("preflight FATAL — cannot produce a valid report:", file=sys.stderr)
+        for f in fatal:
+            print("  x " + f, file=sys.stderr)
+        return 2
+
+    rep = build_report(a.kit, a.team, sample=a.sample, warnings=warnings)
     os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)
     report.write(rep, a.out)
     print("wrote %s  (%d metrics, %d findings, %d diagnoses, %d gaps, %d standard)"

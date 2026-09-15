@@ -159,6 +159,57 @@ core (Rule 1) — the harness drives the same network-free `compute_report` that
 The harness earns confidence by **re-running the unchanged agent on transformed data**, never by
 adjusting the yardstick to fit — which is the whole point of a sealed-run exam.
 
+### Deepening the harness: measured margins + crash-proofing
+
+A later pass extended the harness from *three pass/fail transforms* to a set that **measures how much
+variation the unchanged engine absorbs**, and added a preflight so a schema quirk on day 6 degrades
+instead of crashing. This pass changed **no** detection logic — every addition either observes the
+same network-free `compute_report` on transformed data, or validates/degrades only on malformed input
+(a no-op on a well-formed corpus). The practice score stayed **55.0 / 55**, still exactly 3 regressions
+/ 3 dismissals, confirmed by both `selfcheck.py` and the organisers' `score.py`.
+
+**1. Volume sweep — turning "3/3 at one point" into a measured margin.** Instead of a single 50%
+subsample, the sweep runs the engine at 50/33/25/15% and records the floor at which each real fault
+first drops below the (unchanged) volume gates:
+
+| Fault | Survives down to | First lost at |
+|-------|------------------|---------------|
+| `tool.contract_break` | **15%** volume | — |
+| `kb.gap` | **25%** volume | 15% |
+| `prompt.regression` | **33%** volume | 25% |
+
+So the deployment would have to shrink a whole cohort to **a third of its practice size** before the
+weakest fault (`prompt.regression`) slips — a concrete robustness statement, not a hope.
+
+**2. New invariants (all measurement-only tests):**
+- **Precision under no signal** — with the faulty cohorts removed, the engine invents **zero**
+  regressions (no phantom detection).
+- **Open-world net actually fires** — a synthetic sustained resolution drop injected into a clean
+  cohort (no kb/tool/cost signature, no config change) surfaces as `unexplained` rather than being
+  silently dropped.
+- **Count independence** — dropping any one real fault leaves the other two found and invents none, so
+  nothing assumes "exactly three".
+- **Day-offset fuzz** — attribution tracks correctly across offsets {1,3,7,13,90,200}, including
+  non-multiples of 7 that change the `day//7` week phase.
+- **Late-onset floor** — truncating the tail shows `tool.contract_break` is still confirmed with as
+  little as **one** post-onset week in this data, measuring the bound we had only documented before.
+- **Unattributable config** — a fault with no config change nearby is still reported, with a null
+  attribution and the window falling back to the detected onset (no crash).
+- **Determinism** — two identical runs produce byte-identical reports (modulo the `generated_at`
+  timestamp), guarding against ordering leaks.
+
+**3. Degradable preflight (`engine/preflight.py`).** A read-only pass validates the kit *before* the
+engine reads it and classifies what it finds: **fatal** for data it cannot degrade around (a missing
+sessions/steps file, or a structural column the detectors hard-index) → stop with a clear diagnostic
+naming the file/column, never a mid-run stack trace; **warning** for anything it can degrade (a missing
+optional column, a missing `config_timeline` → null attribution, missing labels → a calibration gap, a
+malformed config day-row → skipped). Warnings are surfaced to stderr **and** folded into the report's
+existing `system_notes` field (no new schema section, so the organisers' scorer stays green). Verified
+live: pointed at an empty kit it exits non-zero listing every missing file; with `config_timeline`
+removed it completes, notes the inconsistency in `system_notes`, nulls every attribution, and still
+emits all three real faults. The preflight is pure local file I/O — **no network, no model, no writes**
+— so both non-negotiables hold here too.
+
 ---
 
 ## Challenges faced & how we overcame them
@@ -169,6 +220,8 @@ that worked.** These double as the demo's "decoy we correctly ignored" and "the 
 - [2026-09-13 · I2] **F2 flat-error-rate trick.** The broken tool returns HTTP 200 with an empty body and `outcome='ok'`, so declared error rate reads flat — invisible to the obvious metric. Caught by scanning the *empty-200 share* (`result_field_count == 0` among ok calls), corroborated by a downstream resolution drop.
 - [2026-09-13 · I2] **Change-point bug (median → mean).** The onset search used a nearest-rank median that flattened the empty-200 peak, tying several splits so the earliest/wrong onset won — silently missing F2. Switching the shift search to the mean of each side fixed it.
 - [2026-09-13 · I2] **Attribution vs detection.** F3 first attributed a prompt regression to a *routing* change nearest the detected onset. Fixed by classifying the cause from the signal, then attributing to the nearest change of the matching mechanism — detection stays agnostic, attribution stays honest.
+- [2026-09-15 · I2] **Crash-proofing without touching the yardstick.** A renamed/missing column on the sealed corpus would surface as a mid-run stack trace (= zero output). Added a read-only preflight that hard-fails with a precise diagnostic only when data is truly unusable, and otherwise **degrades** (null attribution on missing `config_timeline`, skipped bad config rows) with the inconsistency reported in `system_notes`. Purely additive: no metric, judge, gate, or "good" set moved, so the practice 55/3-of-3 is provably unchanged.
+- [2026-09-15 · I2] **Measuring the margin, not hoping for it.** Extended the harness from pass/fail transforms to a volume sweep + invariants (precision-under-no-signal, open-world-net-fires, count-independence, day-offset fuzz, late-onset floor, determinism). This produced a concrete claim — the weakest fault survives to ~33% cohort volume — instead of a single-point "it worked once".
 - [2026-09-13 · I1] **Session-grain re-aggregation** (the #1 corpus trap): step measures are collapsed per session before averaging over sessions; guarded by a regression test that asserts the two paths diverge.
 - [2026-09-13 · I4] **Tool coverage 0.72 / 0.93** (the v2 hole): v2_flow sessions emit no tool/kb/cost steps, so those metrics are authored per tenant with coverage computed from data (acme 0.7205, northwind 0.9308), never hardcoded.
 - [2026-09-13 · I4] **Calibration ≠ 1.00:** judged quality calibrated within one judge_version → agreement 0.875 (n=48, v2); a 1.00 is treated as a bug, not shipped.
@@ -237,7 +290,7 @@ larger direct-fix lift than we conservatively predicted, hence the sign on F1/F2
 
 _Single source of truth; the one-page submission note is the trimmed version of this section._
 
-- **Real:** the full Detect→Diagnose→Prescribe→Verify loop with the return arrow — honesty spine (metrics with fidelity/coverage, calibration), the three gaps, agnostic anomaly-first detection, deterministic prescriptions (cause→direct-fix, predicted delta from detection's own numbers), replay verifications against the endpoint, and self-assessment; plus the sealed-run hardening harness. Every analysis number is computed from the corpus; the log-analysis core makes zero LLM/network calls (enforced by `selfcheck.py`).
+- **Real:** the full Detect→Diagnose→Prescribe→Verify loop with the return arrow — honesty spine (metrics with fidelity/coverage, calibration), the three gaps, agnostic anomaly-first detection, deterministic prescriptions (cause→direct-fix, predicted delta from detection's own numbers), replay verifications against the endpoint, and self-assessment; plus the sealed-run hardening harness (measured volume margins + invariants) and a read-only, degradable preflight (`engine/preflight.py`) that crash-proofs the day-6 run. Every analysis number is computed from the corpus; the log-analysis core makes zero LLM/network calls (enforced by `selfcheck.py`).
 - **Real + degradable:** `verifications` come from the live replay endpoint via `engine/replay/client.py`. If the endpoint is unreachable (it may only exist at the day-6 freeze) the run does not fail — it keeps `predicted_delta` and marks the verification stubbed in `system_notes`.
 - **Stubbed:** the operator **screen** (P-role, the human half) — this pass was engine/machine-only; `loop-report.json` is the interface it would read.
 - **Simulated:** none — no mocks, no fabricated numbers, no model in the loop. (The replay endpoint itself is the organisers' simulator, not ours.)

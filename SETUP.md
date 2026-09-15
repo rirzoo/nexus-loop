@@ -45,6 +45,15 @@ wrote engine/out/loop-report.json  (12 metrics, 6 findings, 6 diagnoses, 3 gaps,
 That file is your input. `engine/out/` is git-ignored, so treat it as a build artifact — re-run
 the command any time to regenerate it.
 
+**Preflight (automatic).** Before it reads the corpus, the engine validates the kit and prints to
+**stderr**. On a clean kit you'll see nothing. If a column or file is off, you'll see either:
+
+- `preflight WARNING: …` — the engine degrades around it and still writes a valid report (e.g. a
+  missing `config_timeline` → findings still emit but attributions are null). Each warning is also
+  recorded in the report's `system_notes` so it's visible downstream.
+- `preflight FATAL — cannot produce a valid report:` followed by the exact missing file/column, and a
+  non-zero exit. Nothing is written. Fix the kit and re-run.
+
 Flags you may want:
 
 | Flag | Effect |
@@ -57,8 +66,8 @@ Flags you may want:
 
 ## 3. What's inside `loop-report.json` (what your screen renders)
 
-Top-level sections (validated by the engine on write; consumed cleanly by the organisers'
-`score.py`):
+Top-level sections (the engine asserts internal link integrity on assembly — unique finding ids,
+every diagnosis/prescription linked; consumed cleanly by the organisers' `score.py`):
 
 | Section | What it is | Your screen uses it for |
 |---------|-----------|-------------------------|
@@ -179,6 +188,12 @@ python3 -m engine.cli --kit <sealed-kit-path> --team solo --out loop-report.json
 No edits to the produced report are allowed. The replay stage (§5) is separate and opt-in. Point
 your screen at whatever `--out` path you used and you're done.
 
+If the sealed kit has a schema quirk, the preflight (above) tells you immediately: a **FATAL** line
+names the exact missing file/column so it can be fixed before the clock runs out, and any **WARNING**
+means the engine degraded around it and still produced a valid report (check `system_notes`). The
+engine keys on **no** absolute day, tenant, or fault taxonomy, and is tested to hold as a cohort thins
+to roughly a third of its practice volume — so the same command runs untouched on the sealed corpus.
+
 ---
 
 ## File map (for reference)
@@ -187,6 +202,7 @@ your screen at whatever `--out` path you used and you're done.
 |------|------|
 | `engine/` | the engine (stdlib Python; you don't need to edit it) |
 | `engine/cli.py` | the one entrypoint (§2) |
+| `engine/preflight.py` | read-only kit validation run automatically before §2 |
 | `engine/replay/client.py` | the opt-in verification stage (§5) |
 | `engine/out/loop-report.json` | the artifact your screen reads (git-ignored) |
 | `nexus-loop-day1/kit/` | corpus, catalog, labels |

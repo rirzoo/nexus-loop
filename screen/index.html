@@ -1,0 +1,1315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loop Desk</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 rx=%273%27 fill=%27%2316191d%27/%3E%3Ccircle cx=%278%27 cy=%278%27 r=%274%27 fill=%27none%27 stroke=%27%23fff%27 stroke-width=%271.6%27/%3E%3C/svg%3E">
+<style>
+:root{
+  --ink:#16191d; --ink-2:#4a5158; --ink-3:#6b737b; --rule:#dfe3e8; --rule-2:#eef1f4;
+  --bg:#f6f7f9; --card:#ffffff; --accent:#1c4f9c; --accent-ink:#ffffff;
+  --bad:#a8321f; --bad-bg:#fdf2f0; --good:#1f6b43; --good-bg:#f1f8f4;
+  --warn:#8a5a09; --warn-bg:#fdf7ec; --mute:#f2f4f7;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px 64px}
+
+/* ---- system bar ---------------------------------------------------------- */
+.sysbar{position:sticky;top:0;z-index:40;background:var(--ink);color:#e8ecf1;font-size:12.5px}
+.sysbar .in{max-width:1180px;margin:0 auto;padding:7px 20px;display:flex;gap:18px;
+  align-items:center;flex-wrap:wrap}
+.sysbar b{color:#fff;font-weight:600}
+.sysbar .sp{flex:1}
+.sysbar code{font:11.5px var(--mono);color:#9fb4d0}
+.nav{display:flex;gap:6px;align-items:center}
+.nav button{font:inherit;background:#2b3138;color:#e8ecf1;border:1px solid #3d444c;
+  border-radius:5px;padding:3px 10px;cursor:pointer}
+.nav button:hover:not(:disabled){background:#3a424b}
+.nav button:disabled{opacity:.35;cursor:default}
+
+/* ---- generic ------------------------------------------------------------- */
+section{background:var(--card);border:1px solid var(--rule);border-radius:9px;
+  margin-top:14px;padding:20px 22px}
+h2{font-size:11.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-3);
+  margin:0 0 14px;font-weight:700}
+h2 .cnt{color:var(--ink-2);letter-spacing:0;text-transform:none;font-weight:500}
+p{margin:0 0 10px}
+.dim{color:var(--ink-2)}
+.small{font-size:13px}
+button{font-family:inherit}
+
+/* ---- hero ---------------------------------------------------------------- */
+.rail{display:flex;gap:9px;align-items:center;font-size:12.5px;font-weight:600;
+  padding:7px 12px;border-radius:6px;margin-bottom:16px}
+.rail.ended{background:var(--warn-bg);color:var(--warn);border:1px solid #f0e0c0}
+.rail.live{background:var(--bad-bg);color:var(--bad);border:1px solid #f3d9d3}
+.rail.done{background:var(--good-bg);color:var(--good);border:1px solid #cfe6da}
+h1{font-size:30px;line-height:1.22;margin:0 0 6px;font-weight:600;letter-spacing:-.015em;
+  max-width:26ch}
+.scope{font-size:13px;color:var(--ink-2);margin-bottom:22px}
+.heroes{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:22px 0 4px}
+.hero{border-left:3px solid var(--rule);padding-left:13px}
+.hero .v{font-size:33px;line-height:1.1;font-weight:600;letter-spacing:-.02em}
+.hero .l{font-size:12.5px;color:var(--ink-2);margin-top:3px}
+
+/* ---- numerals are buttons ------------------------------------------------ */
+.n{background:none;border:none;padding:0;margin:0;font:inherit;color:inherit;cursor:pointer;
+  border-bottom:1px dotted #9aa3ad;text-align:left}
+.n:hover{border-bottom-style:solid;background:#eef3fb}
+.n:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--accent);
+  outline-offset:2px;border-radius:2px}
+
+/* ---- callout ------------------------------------------------------------- */
+.callout{border:1px solid #f0e0c0;background:var(--warn-bg);border-radius:7px;padding:13px 16px;
+  margin:18px 0}
+.callout .k{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--warn);
+  font-weight:700;margin-bottom:5px}
+
+/* ---- decision ask -------------------------------------------------------- */
+.askrow{display:grid;grid-template-columns:190px 1fr;gap:22px;margin-top:18px;
+  padding-top:18px;border-top:1px solid var(--rule-2)}
+.chip{display:inline-block;background:var(--ink);color:#fff;border-radius:5px;
+  padding:5px 11px;font-size:12.5px;font-weight:600}
+.k{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);
+  font-weight:700;margin-bottom:5px}
+
+/* ---- evidence ------------------------------------------------------------ */
+.ev{padding:15px 0;border-top:1px solid var(--rule-2)}
+.ev:first-of-type{border-top:none;padding-top:4px}
+.ev .top{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+.ev .nm{font-weight:600;min-width:210px}
+.bar{height:9px;background:var(--mute);border-radius:5px;overflow:hidden;
+  margin:9px 0 7px;max-width:420px;position:relative}
+.bar i{display:block;height:100%;background:var(--ink-2);border-radius:5px}
+.bar.bad i{background:var(--bad)}
+.prov{font-size:12.5px;color:var(--ink-3);display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.base{font-size:13.5px;color:var(--ink-2);margin-top:8px;max-width:78ch;
+  border-left:2px solid var(--rule);padding-left:11px}
+.raw{font:12px/1.65 var(--mono);color:var(--ink-2);background:var(--mute);border-radius:6px;
+  padding:11px 13px;margin-top:11px;white-space:pre-wrap;overflow-x:auto}
+
+/* ---- disclosure ---------------------------------------------------------- */
+details{margin-top:11px}
+summary{cursor:pointer;font-size:12.5px;color:var(--accent);font-weight:600;
+  list-style:none;display:inline-block;padding:2px 0}
+summary::-webkit-details-marker{display:none}
+summary:before{content:"▸ ";font-size:10px}
+details[open]>summary:before{content:"▾ "}
+
+/* ---- actions ------------------------------------------------------------- */
+.acts{display:flex;gap:11px;margin-top:20px;flex-wrap:wrap}
+.btn{border:1px solid var(--rule);background:#fff;border-radius:7px;padding:12px 24px;
+  font-size:14.5px;font-weight:600;cursor:pointer;color:var(--ink)}
+.btn:hover{background:var(--mute)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.pri:hover{filter:brightness(1.1)}
+.btn.warn:hover{background:var(--bad-bg);border-color:#e9c4bc;color:var(--bad)}
+.btn.sm{padding:6px 13px;font-size:13px;font-weight:500}
+.receipt{border:1px solid var(--rule);border-radius:8px;padding:15px 17px;margin-top:18px}
+.receipt.ok{background:var(--good-bg);border-color:#cfe6da}
+.receipt.no{background:var(--warn-bg);border-color:#f0e0c0}
+.receipt.df{background:var(--mute)}
+.receipt .hd{font-weight:700;font-size:14px;margin-bottom:5px;display:flex;gap:8px;
+  align-items:center;flex-wrap:wrap}
+
+/* ---- dismissals / gaps --------------------------------------------------- */
+.dis{border-top:1px solid var(--rule-2);padding:13px 0}
+.dis:first-of-type{border-top:none}
+.dis .hd{display:flex;gap:11px;align-items:baseline;flex-wrap:wrap}
+.tag{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  border-radius:4px;padding:2px 7px;white-space:nowrap}
+.tag.grey{background:var(--mute);color:var(--ink-2)}
+.tag.red{background:var(--bad-bg);color:var(--bad)}
+.tag.green{background:var(--good-bg);color:var(--good)}
+.tag.amber{background:var(--warn-bg);color:var(--warn)}
+.gap{border-top:1px solid var(--rule-2);padding:17px 0}
+.gap:first-of-type{border-top:none;padding-top:2px}
+.spec{font:12.5px/1.75 var(--mono);background:var(--ink);color:#dfe6ee;border-radius:7px;
+  padding:13px 15px;margin-top:11px;overflow-x:auto;white-space:pre}
+.spec .c{color:#8fa8c4}
+
+/* ---- footer -------------------------------------------------------------- */
+.frozen{margin-top:16px;padding:14px 18px;border:1px dashed var(--rule);border-radius:8px;
+  font-size:13px;color:var(--ink-2);display:flex;gap:11px;align-items:flex-start}
+
+/* ---- modal --------------------------------------------------------------- */
+.scrim{position:fixed;inset:0;background:rgba(18,21,25,.42);display:flex;align-items:center;
+  justify-content:center;z-index:100;padding:20px}
+.modal{background:#fff;border-radius:11px;max-width:600px;width:100%;padding:24px 26px;
+  max-height:86vh;overflow:auto;box-shadow:0 12px 44px rgba(0,0,0,.2)}
+.modal h3{margin:0 0 14px;font-size:17px}
+.modal label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-2);
+  margin:14px 0 5px}
+.modal input,.modal textarea{width:100%;font:14px var(--sans);padding:9px 11px;
+  border:1px solid var(--rule);border-radius:6px;background:#fff;color:var(--ink)}
+.modal textarea{min-height:76px;resize:vertical}
+.reasons{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+.reasons button{font-size:12.5px;padding:5px 11px;border:1px solid var(--rule);
+  border-radius:20px;background:#fff;cursor:pointer;color:var(--ink-2)}
+.reasons button:hover{background:var(--mute);border-color:#c3cad2}
+.confirm{background:var(--mute);border-radius:7px;padding:13px 15px;margin:16px 0;
+  font:12.5px/1.8 var(--mono);color:var(--ink-2)}
+.err{background:var(--bad-bg);border:1px solid #f3d9d3;color:var(--bad);border-radius:6px;
+  padding:10px 13px;margin-top:13px;font-size:13.5px}
+.pop{position:absolute;z-index:200;background:#fff;border:1px solid var(--rule);border-radius:9px;
+  box-shadow:0 10px 32px rgba(0,0,0,.17);padding:16px 18px;max-width:430px;font-size:13.5px}
+.pop .t{font-weight:700;margin-bottom:7px}
+.pop dt{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);
+  font-weight:700;margin-top:11px}
+.pop dd{margin:3px 0 0}
+.pop .lock{margin-top:13px;padding-top:10px;border-top:1px solid var(--rule-2);
+  font-size:12.5px;color:var(--ink-3)}
+.loading{padding:70px 20px;text-align:center;color:var(--ink-3)}
+@media (max-width:860px){
+  .heroes{grid-template-columns:repeat(2,1fr)}
+  .askrow{grid-template-columns:1fr;gap:14px}
+  h1{font-size:25px}
+}
+</style>
+</head>
+<body>
+<div class="sysbar"><div class="in" id="sysbar"></div></div>
+<div class="wrap" id="app"><div class="loading">Reading loop-report.json&hellip;</div></div>
+<div id="overlay"></div>
+<script>
+/* Loop Desk - one screen, one decision.
+ *
+ * Everything on this page is rendered from loop-report.json. There is not a single day number,
+ * tenant name, cohort key, metric name or count written into this file, because the sealed run
+ * moves all of them. If the report says something different, the screen says something different.
+ */
+'use strict';
+
+var R = null, IDX = null, cur = 0;
+var $ = function (s, r) { return (r || document).querySelector(s); };
+var el = function (t, c, x) { var e = document.createElement(t); if (c) e.className = c;
+  if (x != null) e.textContent = x; return e; };
+var esc = function (s) { var d = document.createElement('div'); d.textContent = s == null ? '' : s;
+  return d.innerHTML; };
+
+/* ---------- formatting -------------------------------------------------------------------- */
+function fmtInt(n) { return n == null ? '--' : Number(n).toLocaleString('en-GB'); }
+function fmtPct(v, dp) { return v == null ? '--' : (v * 100).toFixed(dp == null ? 1 : dp) + '%'; }
+function fmtUsd(v) {
+  if (v == null) return '--';
+  v = Number(v);
+  return '$' + (v >= 100 ? Math.round(v).toLocaleString('en-GB') : v.toFixed(2));
+}
+/* Coverage below 1.0 means the figure describes part of the traffic, so trailing decimals are
+ * false precision. Round to what the coverage can actually support. */
+function sigFor(coverage) { return (coverage != null && coverage < 0.95) ? 2 : 4; }
+
+/* ---------- indexing ---------------------------------------------------------------------- */
+function buildIndex(rep) {
+  var byFinding = {}, byDiag = {}, byPres = {}, presById = {}, diagById = {};
+  (rep.diagnoses || []).forEach(function (d) { byFinding[d.finding_id] = d; diagById[d.id] = d; });
+  (rep.prescriptions || []).forEach(function (p) { byDiag[p.diagnosis_id] = p; presById[p.id] = p; });
+  (rep.verifications || []).forEach(function (v) {
+    (byPres[v.prescription_id] = byPres[v.prescription_id] || []).push(v);
+  });
+
+  /* Per-tenant coverage, read out of metrics[]. Never blended: a single figure across tenants
+   * describes neither deployment, and the report states them separately for that reason. */
+  var cov = {};
+  (rep.metrics || []).forEach(function (m) {
+    var c = m.coverage || {};
+    if (c.value == null) return;
+    (rep.findings || []).forEach(function (f) {
+      var slug = String(f.tenant || '').replace(/\W+/g, '_');
+      if (slug && m.id && m.id.indexOf(slug) >= 0 && cov[f.tenant] == null) {
+        cov[f.tenant] = { value: c.value, basis: c.basis, excluded: c.excluded || [] };
+      }
+    });
+  });
+  var cal = null;
+  (rep.metrics || []).forEach(function (m) { if (m.calibration && cal == null) cal = m.calibration; });
+
+  return { byFinding: byFinding, byDiag: byDiag, byPres: byPres, presById: presById,
+           diagById: diagById, cov: cov, cal: cal,
+           regs: (rep.findings || []).filter(function (f) { return f.is_regression; }),
+           dis: (rep.findings || []).filter(function (f) { return !f.is_regression; }) };
+}
+
+/* Resolve the honesty envelope for one number on one finding.
+ *
+ * Coverage is looked up for THIS series, not borrowed from a neighbouring one. The pipeline
+ * measures it per tenant: by full series name for session fields (s.cost_usd, s.quality_score@v1)
+ * and by step type for step series (tool_call, kb_lookup). Falling back to a tenant-wide figure
+ * would put the tool_call hole's 72% next to knowledge-base numbers that actually cover 100%.
+ */
+function envelope(f, meta) {
+  meta = meta || {};
+  var name = meta.name || '';
+  var measured = (R.coverage_measured || {})[f.tenant] || {};
+  var cov = measured[name];
+  if (cov == null && name.indexOf('.') > 0 && !/^s\./.test(name)) cov = measured[name.split('.')[0]];
+  var out = { fidelity: meta.fidelity || 'derived', definition: meta.definition || '',
+              plain: meta.plain || '' };
+  var tenantCov = IDX.cov[f.tenant];
+  if (cov != null) {
+    out.coverage = cov;
+    out.coverageBasis = cov >= 1
+      ? 'Measured: every conversation on this tenant can produce this number. Nothing is excluded.'
+      : 'Measured: the share of this tenant\u2019s conversations that can produce this number at '
+        + 'all. The rest cannot \u2014 that is not a sample, it is a structural blind spot.';
+    out.excluded = cov < 1 && tenantCov ? (tenantCov.excluded || []) : [];
+  } else if (meta.basis === 'step') {
+    out.coverage = tenantCov ? tenantCov.value : null;
+    out.coverageBasis = tenantCov ? tenantCov.basis
+      : 'Coverage for this series is not stated in the report.';
+    out.excluded = tenantCov ? tenantCov.excluded : [];
+  } else {
+    out.coverage = 1.0;
+    out.coverageBasis = 'Every conversation can produce this number; nothing is excluded.';
+    out.excluded = [];
+  }
+  out.calibration = out.fidelity === 'judged' ? IDX.cal : null;
+  return out;
+}
+
+/* ---------- the numeral popover ----------------------------------------------------------- */
+/* One interaction, applied to every numeral on the page. This is the literal rubric clause:
+ * "does every number carry its definition". */
+function num(text, info, cls) {
+  var b = el('button', 'n' + (cls ? ' ' + cls : ''), text);
+  b.type = 'button';
+  b.setAttribute('aria-haspopup', 'dialog');
+  b.addEventListener('click', function (e) { e.stopPropagation(); showPop(b, info); });
+  return b;
+}
+
+function showPop(anchor, info) {
+  closePop();
+  var p = el('div', 'pop');
+  p.setAttribute('role', 'dialog');
+  p.appendChild(el('div', 't', info.title || 'This number'));
+  var dl = el('dl');
+  function row(k, v) {
+    if (v == null || v === '') return;
+    dl.appendChild(el('dt', null, k));
+    dl.appendChild(el('dd', null, v));
+  }
+  row('What it is', info.definition);
+  var FID = { measured: 'Measured - counted directly in the logs. We know this happened.',
+              derived: 'Derived - calculated from things we counted. No opinion involved.',
+              judged: 'Judged - a model read the conversation and formed an opinion.' };
+  row('How we know it', FID[info.fidelity] || info.fidelity);
+  if (info.coverage != null) {
+    row('Coverage', fmtPct(info.coverage, 0) + ' of this deployment’s conversations. '
+        + (info.coverageBasis || ''));
+    if (info.coverage < 1 && (info.excluded || []).length) {
+      row('Excluded', info.excluded.join('; ')
+          + ' — this is not a sample, it is a structural blind spot: that traffic cannot '
+          + 'produce this number at all.');
+    }
+  }
+  if (info.calibration) {
+    var ag = info.calibration.agreement;
+    if (ag >= 0.995) {
+      row('Calibration', '⚠ Suspiciously perfect (' + ag.toFixed(4) + ') — investigate. '
+          + 'Human reviewers disagree with each other, so perfect agreement means something is '
+          + 'wrong, not that the judge is excellent.');
+    } else {
+      row('Calibration', 'Agrees with human reviewers ' + fmtPct(ag, 0) + ' of the time (n='
+          + info.calibration.n + (info.calibration.judge_version ? ', judge '
+          + info.calibration.judge_version : '') + '). '
+          + (info.calibration.basis || '')
+          + ' Human labellers disagree with each other about 7.5% of the time, so agreement of '
+          + '1.00 would be a bug, not a good judge.');
+    }
+  } else if (info.fidelity === 'judged') {
+    row('Calibration', 'Not published. No human labels exist for this question in the kit, so '
+        + 'agreement cannot be computed and none is claimed.');
+  } else {
+    row('Calibration', 'Not applicable — this is not a judged number.');
+  }
+  row('How it was computed', info.derivation);
+  row('Rounding', info.rounding);
+  p.appendChild(dl);
+  var lk = el('div', 'lock', '🔒 Definition frozen — v1.0. This system proposes '
+      + 'changes to the agent, never to the yardstick.');
+  p.appendChild(lk);
+
+  document.body.appendChild(p);
+  var r = anchor.getBoundingClientRect();
+  var top = r.bottom + window.scrollY + 7;
+  var left = Math.min(r.left + window.scrollX, window.scrollX + window.innerWidth - p.offsetWidth - 16);
+  if (top + p.offsetHeight > window.scrollY + window.innerHeight) {
+    top = Math.max(window.scrollY + 8, r.top + window.scrollY - p.offsetHeight - 7);
+  }
+  p.style.top = top + 'px';
+  p.style.left = Math.max(8, left) + 'px';
+  setTimeout(function () { document.addEventListener('click', closePop, { once: true }); }, 0);
+}
+function closePop() { var p = $('.pop'); if (p) p.remove(); }
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closePop(); closeModal(); } });
+
+/* ---------- evidence-line parser ---------------------------------------------------------- */
+/* The scanner emits evidence as prose in a stable shape. Parsing it back into a value, a
+ * baseline and a direction is what lets the screen draw a comparison instead of printing a log
+ * line at an operator. Anything that does not match is shown as-is, never dropped. */
+var EV_RE = /^(\S+) on (.+?), days (\d+)-(\d+): ([\d.]+) -> ([\d.]+) \(([+-]?[\d.]+)%, z=([\d.]+)(?:, baseline: (.+?))?\)\s*$/;
+function parseEvidence(s) {
+  var m = EV_RE.exec(s);
+  if (!m) return { raw: s };
+  return { series: m[1], where: m[2], from_day: +m[3], to_day: +m[4],
+           base: parseFloat(m[5]), obs: parseFloat(m[6]), pct: parseFloat(m[7]),
+           z: parseFloat(m[8]), basis: m[9] || null, raw: s };
+}
+
+/* ---------- system bar -------------------------------------------------------------------- */
+function renderSysbar() {
+  var bar = $('#sysbar');
+  bar.innerHTML = '';
+  var f = IDX.regs[cur];
+  bar.appendChild(el('b', null, 'LOOP DESK'));
+  if (f) bar.appendChild(el('span', null, f.tenant));
+  bar.appendChild(el('span', null, 'corpus ' + (R.corpus || '?')));
+  var decided = (R.prescriptions || []).filter(function (p) {
+    return p.approval && p.approval.verdict; }).length;
+  bar.appendChild(el('span', null, IDX.regs.length + ' to decide · ' + IDX.dis.length
+      + ' dismissed · ' + (R.gaps || []).length + ' refused · ' + decided + ' signed off'));
+  if (R.report_build) {
+    var c = el('code', null, 'build ' + String(R.report_build).replace('sha256:', '').slice(0, 10));
+    c.title = R.report_build;
+    bar.appendChild(c);
+  }
+  bar.appendChild(el('span', 'sp'));
+  var nav = el('div', 'nav');
+  var prev = el('button', null, '‹ prev'), next = el('button', null, 'next ›');
+  prev.type = next.type = 'button';
+  prev.disabled = cur <= 0;
+  next.disabled = cur >= IDX.regs.length - 1;
+  prev.onclick = function () { cur--; render(); window.scrollTo(0, 0); };
+  next.onclick = function () { cur++; render(); window.scrollTo(0, 0); };
+  nav.appendChild(prev);
+  nav.appendChild(el('span', null, (IDX.regs.length ? cur + 1 : 0) + ' of ' + IDX.regs.length));
+  nav.appendChild(next);
+  bar.appendChild(nav);
+}
+
+/* ---------- the finding ------------------------------------------------------------------- */
+function renderFinding(f) {
+  var s = el('section');
+  var d = IDX.byFinding[f.id] || {};
+  var p = IDX.byDiag[d.id] || null;
+  var imp = f.impact || {};
+  var approved = p && p.approval && p.approval.verdict;
+
+  var railCls = approved ? 'done' : (/^Still running/i.test(f.status_plain || '') ? 'live' : 'ended');
+  var icon = approved ? '✓' : (railCls === 'live' ? '●' : '◑');
+  s.appendChild(el('div', 'rail ' + railCls, icon + '  ' + (f.status_plain || '')));
+
+  s.appendChild(el('h1', null, f.title_plain || fallbackTitle(f, d)));
+  var scope = f.tenant + (f.cohort_label ? ' · ' + f.cohort_label : '');
+  if (f.scope_plain) scope += ' · ' + f.scope_plain;
+  s.appendChild(el('div', 'scope', scope));
+
+  /* Exactly four hero numbers. Four can be absorbed at a glance; seven cannot. */
+  var heroes = el('div', 'heroes');
+  function hero(valNode, label) {
+    var h = el('div', 'hero'), v = el('div', 'v');
+    v.appendChild(valNode);
+    h.appendChild(v);
+    h.appendChild(el('div', 'l', label));
+    heroes.appendChild(h);
+  }
+  var covT = IDX.cov[f.tenant];
+  hero(num(fmtInt(imp.conversations_affected), {
+    title: 'Conversations affected', definition: 'Conversations in this cohort during the window.',
+    fidelity: 'measured', coverage: 1.0,
+    coverageBasis: 'Every session is counted; nothing is excluded from this one.',
+    derivation: imp.derivation }), 'conversations affected');
+
+  hero(num(fmtPct(imp.share_of_traffic, 1), {
+    title: 'Share of traffic', definition: 'This cohort as a share of the tenant’s '
+      + 'conversations in the same window.',
+    fidelity: 'derived', coverage: 1.0,
+    coverageBasis: 'Both numerator and denominator are counted on every session.',
+    derivation: imp.derivation }), 'of ' + f.tenant + ' traffic');
+
+  var dn = imp.downstream || {};
+  if (imp.impact_type === 'spend_and_time') {
+    hero(num(fmtUsd(imp.cost_usd), {
+      title: 'Spend on these conversations', definition: 'Model spend summed over the cohort '
+        + 'in the window. Only agents that emit llm_call steps record cost at all.',
+      fidelity: 'measured', coverage: covT ? covT.value : null,
+      coverageBasis: covT ? covT.basis : '', excluded: covT ? covT.excluded : [],
+      derivation: imp.derivation,
+      rounding: 'Shown to the precision its coverage supports.' }), 'spent on them');
+  } else {
+    hero(num(fmtInt(dn.would_have_resolved_at_baseline), {
+      title: 'Conversations that should have resolved', definition: 'Conversations that would have '
+        + 'resolved at the baseline rate and did not. Baseline × conversations, minus those '
+        + 'that actually resolved.',
+      fidelity: 'derived', coverage: 1.0,
+      coverageBasis: 'Resolution is recorded on every session.',
+      derivation: imp.derivation,
+      rounding: 'A count derived from two rates, so it is approximate; the derivation shows both.'
+    }), 'did not resolve that should have');
+  }
+
+  hero(num(fmtInt(imp.days_running) + ' days', {
+    title: 'Days running', definition: 'Days from onset to the last day the fault was observed. '
+      + 'The scan window opens two days earlier so the onset itself is inside it.',
+    fidelity: 'derived', coverage: 1.0,
+    coverageBasis: 'Derived from the day index on every session.',
+    derivation: 'Window days ' + (f.window || {}).from_day + '-' + (f.window || {}).to_day
+      + '; duration measured from onset.' }), 'before anyone could act');
+  s.appendChild(heroes);
+
+  if (imp.outcome_note) {
+    var on = el('div', 'callout');
+    on.appendChild(el('div', 'k', '⚠  Read this before the numbers above'));
+    on.appendChild(el('p', null, imp.outcome_note));
+    s.appendChild(on);
+  }
+
+  if (f.if_nothing_changes) {
+    var c = el('div', 'callout');
+    c.appendChild(el('div', 'k', '⚑  If nobody acts'));
+    c.appendChild(el('p', null, f.if_nothing_changes));
+    s.appendChild(c);
+  }
+
+  var AUD = { agent_builder: 'Agent Builder', business_owner: 'Business Owner',
+              platform_owner: 'Platform Team' };
+  var row = el('div', 'askrow');
+  var left = el('div');
+  left.appendChild(el('div', 'k', 'Who has to act'));
+  (f.audience || []).forEach(function (a) {
+    var ch = el('span', 'chip', AUD[a] || a);
+    ch.style.marginRight = '6px';
+    ch.style.marginBottom = '6px';
+    left.appendChild(ch);
+  });
+  row.appendChild(left);
+  var right = el('div');
+  right.appendChild(el('div', 'k', 'Decision asked of you'));
+  right.appendChild(el('p', null, p && p.decision ? p.decision.asking_approval_for
+    : 'No fix is proposed for this finding. It is reported for a human to route.'));
+  row.appendChild(right);
+  s.appendChild(row);
+  return s;
+}
+
+/* A report emitted before the language layer carries no title_plain. Compose one from the cause
+ * class and the cohort rather than showing a finding id to a person. */
+var FALLBACK_TITLE = {
+  'kb.gap': 'Customers asking about {c} are not getting a useful answer.',
+  'tool.contract_break': 'A tool behind {c} reports success while returning nothing.',
+  'tool.outage': 'A tool behind {c} is failing outright.',
+  'prompt.regression': 'Conversations in {c} got longer and more expensive without getting better.',
+  'model.change': 'A model change altered how {c} behaves.',
+  'routing.error': 'Conversations in {c} are being sent to the wrong place.',
+  'traffic_mix': 'The mix of questions changed - the totals moved, the service did not.',
+  'load': 'Traffic ran far above normal and the platform slowed down, then recovered.',
+  'judge_change': 'The quality-scoring rubric changed version - the scores moved, the agents did not.'
+};
+function fallbackCohort(f) {
+  var c = f.cohort || {}, k = Object.keys(c)[0];
+  if (!k) return 'all ' + f.tenant + ' traffic';
+  var v = String(c[k]);
+  if (k === 'intent') return v.replace(/_(info|enquiry|query)$/, '').replace(/_/g, ' ')
+    .replace(/\b\w/g, function (m) { return m.toUpperCase(); }) + ' enquiries';
+  if (k === 'tool' || k === 'tool_name') return 'the ' + v + ' tool';
+  if (k === 'agent_id') return 'the ' + v + ' agent';
+  return v.replace(/_/g, ' ');
+}
+function fallbackTitle(f, d) {
+  var t = FALLBACK_TITLE[(d || {}).cause_class];
+  var c = fallbackCohort(f);
+  if (t) return t.replace('{c}', c);
+  return f.is_regression ? 'Service quality dropped in ' + c + '.'
+                         : c.charAt(0).toUpperCase() + c.slice(1) + ' looked like a problem and is not one.';
+}
+
+/* ---------- WHAT WE MEASURED -------------------------------------------------------------- */
+function renderMeasured(f) {
+  var s = el('section');
+  s.appendChild(el('h2', null, 'What we measured'));
+  var rows = (f.evidence || []).map(parseEvidence);
+  var numeric = rows.filter(function (r) { return r.series; });
+  var notes = rows.filter(function (r) { return !r.series; });
+
+  if (!numeric.length && !notes.length) s.appendChild(el('p', 'dim', 'No evidence rows recorded.'));
+
+  /* One claim per row: name, value, bar, baseline, provenance. Never a table of twelve metrics. */
+  numeric.slice(0, 4).forEach(function (r, i) {
+    var meta = (i === 0 && f.metric_plain && f.metric_plain.name === r.series)
+      ? f.metric_plain : guessMeta(r.series);
+    var env = envelope(f, meta);
+    var d = el('div', 'ev');
+    var top = el('div', 'top');
+    top.appendChild(el('div', 'nm', meta.plain || r.series));
+    var dp = sigFor(env.coverage);
+    var shown = fmtMeasure(r.obs, meta, env.coverage),
+        baseShown = fmtMeasure(r.base, meta, env.coverage);
+    top.appendChild(num(shown, {
+      title: meta.plain || r.series, definition: meta.definition, fidelity: env.fidelity,
+      coverage: env.coverage, coverageBasis: env.coverageBasis, excluded: env.excluded,
+      calibration: env.calibration,
+      derivation: r.raw,
+      rounding: env.coverage != null && env.coverage < 0.95
+        ? 'Shown to ' + dp + ' decimal places because coverage is '
+          + fmtPct(env.coverage, 0) + ' — more would be false precision.'
+        : null }));
+    top.appendChild(el('span', 'dim small', 'vs ' + baseShown + ' baseline · '
+      + (r.pct > 0 ? '+' : '') + r.pct + '% · z=' + r.z));
+    d.appendChild(top);
+
+    var worse = meta.higher_is_better === true ? r.obs < r.base
+      : meta.higher_is_better === false ? r.obs > r.base : false;
+    var mx = Math.max(Math.abs(r.obs), Math.abs(r.base)) || 1;
+    var bar = el('div', 'bar' + (worse ? ' bad' : ''));
+    var fill = el('i');
+    fill.style.width = Math.min(100, Math.abs(r.obs) / mx * 100) + '%';
+    bar.appendChild(fill);
+    d.appendChild(bar);
+
+    var CH = { measured: '⬤ Measured', derived: '◐ Derived', judged: '◔ Judged' };
+    var prov = el('div', 'prov');
+    prov.appendChild(el('span', null, CH[env.fidelity] || env.fidelity));
+    prov.appendChild(el('span', null, '·'));
+    prov.appendChild(el('span', null, 'covers ' + fmtPct(env.coverage, 0) + ' of ' + f.tenant));
+    if (r.where) { prov.appendChild(el('span', null, '·')); prov.appendChild(el('span', null, r.where)); }
+    d.appendChild(prov);
+
+    if (i === 0 && f.baseline && f.baseline.justification) {
+      var b = el('div', 'base');
+      b.appendChild(el('strong', null, 'Baseline: '
+        + (f.baseline.type === 'peer_traffic' ? 'peer traffic. ' : 'its own history. ')));
+      b.appendChild(document.createTextNode(f.baseline.justification));
+      d.appendChild(b);
+    }
+    s.appendChild(d);
+  });
+
+  notes.forEach(function (r) { s.appendChild(el('p', 'small dim', '• ' + r.raw)); });
+
+  /* Disclosure reveals HOW we know, never WHAT we claim. */
+  var det = el('details');
+  det.appendChild(el('summary', null, 'Show the full working'));
+  if ((f.impact || {}).derivation) {
+    det.appendChild(el('div', 'k', 'Derivation'));
+    det.appendChild(el('div', 'raw', f.impact.derivation));
+  }
+  if (rows.length > 4) {
+    det.appendChild(el('div', 'k', 'Every series that moved'));
+    det.appendChild(el('div', 'raw', (f.evidence || []).join('\n')));
+  }
+  s.appendChild(det);
+
+  var refused = [];
+  (R.metrics || []).forEach(function (m) {
+    ((m.plan || {}).refused_breakdowns || []).forEach(function (x) {
+      if (refused.indexOf(x) < 0) refused.push(x);
+    });
+  });
+  if (refused.length) {
+    var line = el('p', 'small dim');
+    line.style.marginTop = '12px';
+    line.appendChild(document.createTextNode('Breakdowns we refused rather than truncated: '
+      + refused.join('; ') + '.'));
+    s.appendChild(line);
+  }
+  return s;
+}
+
+function fmtNum(v, dp) {
+  if (v == null) return '--';
+  if (Math.abs(v) >= 1000) return Math.round(v).toLocaleString('en-GB');
+  var t = Number(v).toFixed(dp);
+  return t.replace(/\.?0+$/, '') || '0';
+}
+
+/* A rate reads as a percentage to a person and as a decimal to a machine. The operator gets the
+ * percentage; the exact stored value is in the popover. Money, milliseconds, scores and counts
+ * keep their own units - "0.25" is a match score, not 25% of anything. */
+function fmtMeasure(v, meta, coverage) {
+  if (v == null) return '--';
+  var u = (meta || {}).unit;
+  if (u === 'rate') return fmtPct(v, (coverage != null && coverage < 0.95) ? 1 : (Math.abs(v) < 0.1 ? 1 : 0));
+  if (u === 'usd') return fmtUsd(v);
+  if (u === 'ms') return Math.round(v).toLocaleString('en-GB') + ' ms';
+  return fmtNum(v, sigFor(coverage));
+}
+
+/* Fallback metadata for a series the report did not annotate. Mirrors nexus/language.py so the
+ * screen degrades to a sentence rather than a raw key. */
+var SESSION_META = {
+  's.resolved': ['Resolution rate', 'measured', true, 'rate',
+    'Share of conversations that ended resolved.'],
+  's.milestones_complete': ['Journey completion rate', 'measured', true, 'rate',
+    'Share of conversations that reached every milestone their intent defines.'],
+  's.milestone_ratio': ['Journey progress', 'derived', true, 'rate',
+    'Average share of an intent\u2019s milestones reached before the conversation ended.'],
+  's.handoff_unplanned': ['Unplanned handoffs', 'measured', false, 'rate',
+    'Share of conversations handed to a human the journey never intended to involve.'],
+  's.abandoned': ['Abandonment rate', 'measured', false, 'rate',
+    'Share of conversations the customer left without resolving. How many gave up is measured; '
+    + 'why they gave up is not \u2014 see the refused questions.'],
+  's.turns': ['Exchanges per conversation', 'measured', false, 'count',
+    'Back-and-forth turns before the conversation ended.'],
+  's.duration_s': ['Conversation length', 'measured', false, 'count',
+    'Wall-clock seconds from first to last turn.'],
+  's.cost_usd': ['Cost per conversation', 'measured', false, 'usd',
+    'Model spend per conversation, summed over its llm_call steps.'],
+  's.tool_error_any': ['Conversations hitting a tool error', 'derived', false, 'rate',
+    'Share of conversations with at least one tool call that did not return ok. Declared '
+    + 'failures only \u2014 a tool returning 200 with an empty body counts as a success here.'],
+  's.guardrail_any': ['Conversations hitting a guardrail', 'measured', false, 'rate',
+    'Share of conversations where at least one guardrail step fired.']
+};
+
+function guessMeta(series) {
+  if (SESSION_META[series]) {
+    var x = SESSION_META[series];
+    return { name: series, plain: x[0], fidelity: x[1], higher_is_better: x[2], unit: x[3],
+             definition: x[4], basis: series === 's.cost_usd' ? 'step' : 'session' };
+  }
+  var NOUN = { tool_call: 'tool call', kb_lookup: 'knowledge-base lookup', llm_call: 'model call',
+               guardrail: 'guardrail', handoff: 'handoff', turn: 'turn' };
+  var SUF = { fail: ['failure rate', 'measured', false, 'rate'],
+              empty: ['empty-response rate', 'derived', false, 'rate'],
+              miss: ['miss rate', 'measured', false, 'rate'],
+              retry: ['retry rate', 'measured', false, 'rate'],
+              duration_ms: ['response time', 'measured', false, 'ms'],
+              timeout: ['timeout rate', 'measured', false, 'rate'],
+              blocked: ['blocked rate', 'measured', false, 'rate'],
+              top_score: ['best match score', 'measured', true, 'score'],
+              tokens: ['tokens used', 'measured', false, 'count'] };
+  if (series.indexOf('share:') === 0) {
+    return { name: series, plain: 'Share of traffic by ' + series.split(':')[1],
+             fidelity: 'derived', basis: 'session', higher_is_better: null, unit: 'rate',
+             definition: 'What proportion of traffic each value accounts for. A change here moves '
+               + 'every aggregate without anything getting better or worse.' };
+  }
+  if (series.indexOf('s.quality_score') === 0) {
+    return { name: series, plain: 'Judged quality', fidelity: 'judged', basis: 'session',
+             higher_is_better: true, unit: 'score',
+             definition: 'A model’s 1-5 score for the conversation, comparable only within '
+               + 'one rubric version.' };
+  }
+  var parts = series.split('.');
+  if (parts.length === 2 && SUF[parts[1]]) {
+    var n = NOUN[parts[0]] || parts[0].replace(/_/g, ' '), t = SUF[parts[1]];
+    return { plain: n.charAt(0).toUpperCase() + n.slice(1) + ' ' + t[0], fidelity: t[1],
+             basis: 'step', higher_is_better: t[2],
+             definition: 'Measured on ' + n + ' steps in the agent’s execution log.' };
+  }
+  return { name: series, plain: series.replace(/^s\./, '').replace(/[_.]/g, ' '),
+           fidelity: 'derived', basis: 'session', higher_is_better: null, unit: 'count',
+           definition: 'Computed from the deployment’s own logs.' };
+}
+
+/* ---------- WHY IT HAPPENED --------------------------------------------------------------- */
+function renderWhy(f) {
+  var d = IDX.byFinding[f.id];
+  if (!d) return null;
+  var s = el('section');
+  s.appendChild(el('h2', null, 'Why it happened'));
+  var att = d.attributed_change;
+  if (att) {
+    var line = el('p');
+    line.style.fontSize = '16px';
+    line.appendChild(el('strong', null, 'Day ' + att.day + ' · ' + att.kind + ' change'));
+    s.appendChild(line);
+    var detail = (d.evidence || []).filter(function (x) { return /attributed via/i.test(x); })[0];
+    if (detail) s.appendChild(el('p', 'small dim', detail));
+  } else {
+    s.appendChild(el('p', null, 'No configuration change lines up with this window.'));
+  }
+  if (d.attribution_confidence_plain) {
+    var tag = el('span', 'tag amber', '◐ ' + d.attribution_confidence_plain);
+    s.appendChild(tag);
+  }
+  if (d.attribution_plain) {
+    var ap = el('p', 'small dim');
+    ap.style.marginTop = '10px';
+    ap.style.maxWidth = '80ch';
+    ap.textContent = d.attribution_plain;
+    s.appendChild(ap);
+  }
+  var p = IDX.byDiag[d.id];
+  if (p && p.decision && p.decision.risk_if_diagnosis_wrong) {
+    var r = el('div', 'base');
+    r.style.marginTop = '14px';
+    r.appendChild(el('strong', null, 'If we are wrong: '));
+    r.appendChild(document.createTextNode(p.decision.risk_if_diagnosis_wrong));
+    s.appendChild(r);
+  }
+  var det = el('details');
+  det.appendChild(el('summary', null, 'Show what we ruled out'));
+  det.appendChild(el('div', 'raw', (d.evidence || []).join('\n')
+    + '\n\nConfidence recorded by the diagnoser: ' + (d.confidence != null ? d.confidence : 'n/a')
+    + '\nCause class: ' + d.cause_class));
+  s.appendChild(det);
+  return s;
+}
+
+/* ---------- WHAT WE PROPOSE + DID IT WORK + the gate -------------------------------------- */
+function renderPropose(f) {
+  var d = IDX.byFinding[f.id] || {};
+  var p = IDX.byDiag[d.id];
+  if (!p) return null;
+  var s = el('section');
+  s.appendChild(el('h2', null, 'What we propose'));
+  s.appendChild(el('p', null, p.description || ''));
+
+  var pd = p.predicted_delta || {};
+  if (pd.metric) {
+    var meta = p.predicted_delta_plain || guessMeta(pd.metric);
+    var env = envelope(f, meta);
+    var pr = el('p', 'small');
+    pr.appendChild(el('strong', null, 'Predicted: '));
+    pr.appendChild(document.createTextNode((meta.plain || pd.metric) + ' '));
+    pr.appendChild(num(fmtMeasure(pd.from, meta, env.coverage), {
+      title: 'Where it is now', definition: meta.definition, fidelity: env.fidelity,
+      coverage: env.coverage, coverageBasis: env.coverageBasis, derivation: 'Observed in the window.' }));
+    pr.appendChild(document.createTextNode(' → about '));
+    pr.appendChild(num(fmtMeasure(pd.to, meta, env.coverage), {
+      title: 'Where we predict it lands', definition: 'The baseline this cohort is measured '
+        + 'against. Predicting a return to baseline is what makes the claim falsifiable.',
+      fidelity: 'derived', coverage: env.coverage, coverageBasis: env.coverageBasis,
+      derivation: 'Baseline for this cohort; see the baseline justification above.' }));
+    s.appendChild(pr);
+  }
+
+  if (p.decision && p.decision.would_not_ship_if) {
+    var st = el('div', 'callout');
+    st.appendChild(el('div', 'k', '⛔  Pre-committed stop condition'));
+    st.appendChild(el('p', null, p.decision.would_not_ship_if));
+    s.appendChild(st);
+  }
+
+  /* DID IT WORK */
+  var vs = IDX.byPres[p.id] || [];
+  s.appendChild(el('h2', null, 'Did it work'));
+  if (!vs.length) {
+    var nv = el('p', 'dim');
+    nv.textContent = 'Not verified. This fix has not been put to the replay service, so there is '
+      + 'no before-and-after for it. A fix with no evidence behind it is a hope, and the screen '
+      + 'says so rather than implying otherwise.';
+    s.appendChild(nv);
+  }
+  vs.forEach(function (v) {
+    /* A fix that improved the cohort and broke the golden set is not a green result: the stop
+     * condition we pre-committed to has fired, so it reads as the blocked change it now is. */
+    var box = el('div', 'receipt ' + (v.stop_condition_triggered ? 'no'
+      : v.verdict === 'improved' ? 'ok'
+      : v.verdict === 'regressed' ? 'no' : 'df'));
+    var VI = { improved: '✓ Improved', no_effect: '— No effect',
+               regressed: '✗ Made it worse' };
+    var hd = el('div', 'hd');
+    hd.appendChild(document.createTextNode(VI[v.verdict] || v.verdict));
+    if (v.is_alternative) hd.appendChild(el('span', 'tag grey', 'alternative we tested'));
+    if (v.golden_set_pass === false) hd.appendChild(el('span', 'tag red', 'golden set regressed'));
+    if (v.golden_set_pass === true) hd.appendChild(el('span', 'tag green', 'golden set clean'));
+    box.appendChild(hd);
+    box.appendChild(el('p', 'small', v.plain || ''));
+    if (v.alternative_note) box.appendChild(el('p', 'small dim', v.alternative_note));
+    if (v.stop_condition_note) {
+      var sc = el('p', 'small');
+      sc.style.fontWeight = '600';
+      sc.style.color = 'var(--bad)';
+      sc.textContent = '⛔ ' + v.stop_condition_note;
+      box.appendChild(sc);
+    }
+    if (v.prediction_error_not_computed_because) {
+      box.appendChild(el('p', 'small dim', v.prediction_error_not_computed_because));
+    } else if (v.prediction_error != null) {
+      box.appendChild(el('p', 'small dim', 'Prediction error: ' + v.prediction_error
+        + ' (predicted minus observed, on the same metric).'));
+    }
+    box.appendChild(el('p', 'small dim', 'ⓘ ' + (v.caveat || '')
+      + '  Replay run ' + v.replay_run_id + '.'));
+    s.appendChild(box);
+  });
+
+  s.appendChild(renderGate(f, p));
+  return s;
+}
+
+/* ---------- the approval gate ------------------------------------------------------------- */
+/* Deliberately no keyboard shortcut. Approving a change to a production agent should cost a
+ * considered click; "can you approve this by accident" should have a good answer. */
+var VERDICT_UI = {
+  accepted: { cls: 'ok', word: 'ACCEPTED', icon: '✓', tail: 'approved for shipping' },
+  rejected: { cls: 'no', word: 'REJECTED', icon: '✗', tail: 'not shipped — reason recorded' },
+  deferred: { cls: 'df', word: 'DEFERRED', icon: '⏸', tail: 'escalated — no change made' }
+};
+
+function renderGate(f, p) {
+  var wrap = el('div');
+  var a = p.approval;
+  if (a && a.verdict) {
+    var ui = VERDICT_UI[a.verdict] || VERDICT_UI.deferred;
+    var box = el('div', 'receipt ' + ui.cls);
+    var hd = el('div', 'hd');
+    hd.appendChild(document.createTextNode(ui.icon + ' ' + ui.word + ' · ' + ui.tail));
+    box.appendChild(hd);
+    box.appendChild(el('p', 'small', a.decided_by + ' · ' + a.at));
+    var why = el('p', 'small');
+    why.appendChild(el('strong', null, 'Reason: '));
+    why.appendChild(document.createTextNode(a.reason));
+    box.appendChild(why);
+    var hist = p.approval_history || [];
+    var bound = hist.length ? hist[hist.length - 1].report_build : null;
+    if (bound) {
+      box.appendChild(el('p', 'small dim', 'Recorded against report build ' + bound
+        + (bound === R.report_build ? ' — the evidence on this screen.'
+          : ' — WARNING: the report has been regenerated since.')));
+    }
+    if (hist.length > 1) {
+      var det = el('details');
+      det.appendChild(el('summary', null, 'Decision history (' + hist.length + ' entries, nothing overwritten)'));
+      det.appendChild(el('div', 'raw', hist.map(function (h, i) {
+        return (i + 1) + '. ' + h.verdict.toUpperCase() + ' · ' + h.decided_by + ' · '
+          + h.at + '\n   ' + h.reason;
+      }).join('\n\n')));
+      box.appendChild(det);
+    }
+    var acts = el('div', 'acts');
+    var ch = el('button', 'btn sm', 'change decision');
+    ch.type = 'button';
+    ch.onclick = function () { openDecision(f, p, null); };
+    acts.appendChild(ch);
+    var vw = el('button', 'btn sm', 'view the change in loop-report.json');
+    vw.type = 'button';
+    vw.onclick = function () { showWritten(p); };
+    acts.appendChild(vw);
+    box.appendChild(acts);
+    wrap.appendChild(box);
+    return wrap;
+  }
+
+  var acts = el('div', 'acts');
+  [['accepted', 'ACCEPT FIX', 'btn pri'], ['rejected', 'REJECT', 'btn warn'],
+   ['deferred', 'DEFER — need more information', 'btn']].forEach(function (x) {
+    var b = el('button', x[2], x[1]);
+    b.type = 'button';
+    b.onclick = function () { openDecision(f, p, x[0]); };
+    acts.appendChild(b);
+  });
+  wrap.appendChild(acts);
+  var note = el('p', 'small dim');
+  note.style.marginTop = '10px';
+  note.textContent = 'Whichever you choose is written into loop-report.json → prescriptions['
+    + p.id + '].approval, with your name, the time, the reason, and the build hash of the '
+    + 'evidence you are looking at. A rejection with a good reason is as complete an answer as '
+    + 'an approval.';
+  wrap.appendChild(note);
+  return wrap;
+}
+
+var REASONS = {
+  accepted: ['Evidence is unambiguous', 'Cheap and reversible', 'Replay result is convincing'],
+  rejected: ['Diagnosis not convincing', 'Fix is too risky', 'Not worth the effort',
+             'Owned by another team', 'Golden set regressed'],
+  deferred: ['Need the owning team to confirm', 'Waiting on a business decision',
+             'Want a narrower fix first']
+};
+
+function closeModal() { $('#overlay').innerHTML = ''; }
+
+function openDecision(f, p, verdict) {
+  var ov = $('#overlay');
+  ov.innerHTML = '';
+  var scrim = el('div', 'scrim');
+  var m = el('div', 'modal');
+  var state = { verdict: verdict || 'rejected' };
+
+  m.appendChild(el('h3', null, 'Record a decision on this fix'));
+  m.appendChild(el('p', 'small dim', p.decision ? p.decision.asking_approval_for : ''));
+
+  m.appendChild(el('label', null, 'Your decision'));
+  var vrow = el('div', 'reasons');
+  var vbtns = {};
+  ['accepted', 'rejected', 'deferred'].forEach(function (v) {
+    var b = el('button', null, VERDICT_UI[v].word);
+    b.type = 'button';
+    vbtns[v] = b;
+    b.onclick = function () { state.verdict = v; paint(); };
+    vrow.appendChild(b);
+  });
+  m.appendChild(vrow);
+
+  m.appendChild(el('label', null, 'Your name or email'));
+  var who = el('input');
+  who.value = localStorage.getItem('loopdesk.who') || '';
+  who.placeholder = 'ops.lead@example.com';
+  m.appendChild(who);
+
+  var rlabel = el('label', null, 'Reason');
+  m.appendChild(rlabel);
+  var quick = el('div', 'reasons');
+  m.appendChild(quick);
+  var why = el('textarea');
+  why.placeholder = 'Why this decision? This is recorded in the report.';
+  m.appendChild(why);
+
+  var conf = el('div', 'confirm');
+  m.appendChild(conf);
+  var errBox = el('div');
+  m.appendChild(errBox);
+
+  var acts = el('div', 'acts');
+  var cancel = el('button', 'btn', 'Cancel');
+  cancel.type = 'button';
+  cancel.onclick = closeModal;
+  var go = el('button', 'btn pri', 'Confirm');
+  go.type = 'button';
+  acts.appendChild(cancel);
+  acts.appendChild(go);
+  m.appendChild(acts);
+
+  function paint() {
+    ['accepted', 'rejected', 'deferred'].forEach(function (v) {
+      var on = v === state.verdict;
+      vbtns[v].style.background = on ? 'var(--ink)' : '#fff';
+      vbtns[v].style.color = on ? '#fff' : 'var(--ink-2)';
+      vbtns[v].style.borderColor = on ? 'var(--ink)' : 'var(--rule)';
+    });
+    rlabel.textContent = 'Reason (required)';
+    quick.innerHTML = '';
+    (REASONS[state.verdict] || []).forEach(function (r) {
+      var b = el('button', null, r);
+      b.type = 'button';
+      b.onclick = function () { why.value = why.value ? why.value : r; why.focus(); };
+      quick.appendChild(b);
+    });
+    conf.textContent =
+      'writes to   loop-report.json → prescriptions[' + p.id + '].approval\n'
+      + 'verdict     ' + state.verdict + '\n'
+      + 'change      ' + p.change_type + ' on ' + p.target + '\n'
+      + 'against     report build ' + (R.report_build || 'n/a') + '\n'
+      + 'then        re-validated against the schema before it is saved';
+  }
+  paint();
+
+  go.onclick = function () {
+    errBox.innerHTML = '';
+    if (!who.value.trim()) { errBox.appendChild(el('div', 'err', 'Your name is required — an unsigned decision is not a decision.')); return; }
+    if (!why.value.trim()) { errBox.appendChild(el('div', 'err', 'A reason is required. A rejection with a good reason scores as well as an approval — but a decision with no reason is not a record.')); return; }
+    localStorage.setItem('loopdesk.who', who.value.trim());
+    go.disabled = true;
+    go.textContent = 'Writing…';
+    fetch('/decision', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prescription_id: p.id, verdict: state.verdict,
+                             decided_by: who.value.trim(), reason: why.value.trim(),
+                             report_build: R.report_build })
+    }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        go.disabled = false;
+        go.textContent = 'Confirm';
+        if (!res.ok) {
+          errBox.appendChild(el('div', 'err', (res.j.error || 'write failed') + ' '
+            + (res.j.detail || '') + ' ' + ((res.j.contract || []).join('; '))));
+          return;
+        }
+        closeModal();
+        load(function () { showWritten(IDX.presById[p.id], res.j); });
+      })
+      .catch(function (e) {
+        go.disabled = false;
+        go.textContent = 'Confirm';
+        errBox.appendChild(el('div', 'err', 'Could not reach the server: ' + e
+          + '. The page is open without screen/serve.py running, so nothing can be written.'));
+      });
+  };
+
+  scrim.appendChild(m);
+  scrim.onclick = function (e) { if (e.target === scrim) closeModal(); };
+  ov.appendChild(scrim);
+  who.focus();
+}
+
+/* Proof, not assertion: show the actual JSON now sitting in the file. */
+function showWritten(p, res) {
+  var ov = $('#overlay');
+  ov.innerHTML = '';
+  var scrim = el('div', 'scrim');
+  var m = el('div', 'modal');
+  m.appendChild(el('h3', null, 'Written to loop-report.json'));
+  m.appendChild(el('p', 'small dim', 'This is the file the judges open. Path: '
+    + ((res && res.path) || 'engine/out/loop-report.json')));
+  if (res && res.before) {
+    m.appendChild(el('div', 'k', 'Before'));
+    m.appendChild(el('div', 'raw', JSON.stringify(res.before, null, 2)));
+  } else {
+    m.appendChild(el('div', 'k', 'Before'));
+    m.appendChild(el('div', 'raw', 'prescriptions[' + p.id + '] had no "approval" key.\n'
+      + 'The pipeline never writes one — only this screen may.'));
+  }
+  m.appendChild(el('div', 'k', 'After'));
+  m.appendChild(el('div', 'raw', '"approval": ' + JSON.stringify(p.approval, null, 2)));
+  m.appendChild(el('p', 'small dim', 'The report was re-validated against '
+    + 'schema/loop-report.schema.json and the project’s contract checks after this was '
+    + 'written. If either had failed, nothing would have been saved.'));
+  var acts = el('div', 'acts');
+  var b = el('button', 'btn pri', 'Close');
+  b.type = 'button';
+  b.onclick = closeModal;
+  acts.appendChild(b);
+  m.appendChild(acts);
+  scrim.appendChild(m);
+  scrim.onclick = function (e) { if (e.target === scrim) closeModal(); };
+  ov.appendChild(scrim);
+}
+
+/* ---------- WHAT WE THREW AWAY ------------------------------------------------------------ */
+/* Staying quiet about a lookalike is not the same as dismissing it. Every one of these was
+ * examined and written off in writing, with the cause named. */
+function renderDismissals() {
+  var s = el('section');
+  var h = el('h2', null, 'What we threw away ');
+  h.appendChild(el('span', 'cnt', '— ' + IDX.dis.length
+    + ' things that looked like problems and were not'));
+  s.appendChild(h);
+  if (!IDX.dis.length) {
+    s.appendChild(el('p', 'dim', 'Nothing was examined and dismissed on this run.'));
+    return s;
+  }
+  IDX.dis.forEach(function (f) {
+    var d = IDX.byFinding[f.id] || {};
+    var row = el('div', 'dis');
+    var hd = el('div', 'hd');
+    hd.appendChild(el('span', 'tag grey', '✕ dismissed'));
+    var t = el('strong', null, f.title_plain || fallbackTitle(f, d));
+    hd.appendChild(t);
+    hd.appendChild(el('span', 'tag amber', d.cause_class || '?'));
+    row.appendChild(hd);
+    row.appendChild(el('div', 'small dim', f.tenant
+      + (f.cohort_label && f.cohort_label !== 'this deployment' ? ' · ' + f.cohort_label : '')
+      + ' · ' + (f.status_plain || '')));
+    if (f.not_a_regression_because) {
+      var p = el('p', 'small');
+      p.style.marginTop = '8px';
+      p.style.maxWidth = '84ch';
+      p.textContent = f.not_a_regression_because;
+      row.appendChild(p);
+    }
+    if ((f.evidence || []).length) {
+      var det = el('details');
+      det.appendChild(el('summary', null, 'Show the measurements behind this'));
+      det.appendChild(el('div', 'raw', f.evidence.join('\n')));
+      row.appendChild(det);
+    }
+    s.appendChild(row);
+  });
+  return s;
+}
+
+/* ---------- WHAT WE CANNOT SEE ------------------------------------------------------------ */
+/* Permanently on the page. Not a tab, not a modal, not a second screen. */
+function renderGaps() {
+  var s = el('section');
+  var gaps = R.gaps || [];
+  var h = el('h2', null, 'What we cannot see ');
+  h.appendChild(el('span', 'cnt', '— ' + gaps.length
+    + ' question' + (gaps.length === 1 ? '' : 's') + ' we refused to answer'));
+  s.appendChild(h);
+
+  var VERD = {
+    NOT_MEASURABLE: ['red', 'NOT MEASURABLE'],
+    REQUIRES_NEW_JUDGE: ['amber', 'NEEDS A NEW JUDGE'],
+    COVERAGE_TOO_LOW: ['amber', 'COVERAGE TOO LOW'],
+    CARDINALITY_REFUSED: ['amber', 'REFUSED — CARDINALITY']
+  };
+  var ASKS = window.ASK_TEXT || {};
+
+  gaps.forEach(function (g) {
+    var row = el('div', 'gap');
+    var hd = el('div', 'hd');
+    hd.style.display = 'flex';
+    hd.style.gap = '11px';
+    hd.style.alignItems = 'baseline';
+    hd.style.flexWrap = 'wrap';
+    var q = el('strong', null, '“' + (ASKS[g.ask_id] || ('Operator question ' + g.ask_id)) + '”');
+    q.style.fontSize = '15.5px';
+    hd.appendChild(q);
+    var v = VERD[g.verdict] || ['grey', g.verdict];
+    hd.appendChild(el('span', 'tag ' + v[0], v[1]));
+    hd.appendChild(el('span', 'small dim', g.ask_id));
+    row.appendChild(hd);
+
+    if (g.why) {
+      var w = el('p', 'small');
+      w.style.marginTop = '9px';
+      w.style.maxWidth = '84ch';
+      w.textContent = g.why;
+      row.appendChild(w);
+    }
+    /* The seductive wrong answer, and why it misleads. The part most teams omit, and the part
+     * that shows the difference between refusing and not bothering. */
+    if (g.nearest_proxy) {
+      var pr = el('div', 'base');
+      pr.style.marginTop = '10px';
+      pr.appendChild(el('strong', null, 'The tempting answer is ' + g.nearest_proxy + ' — '));
+      pr.appendChild(document.createTextNode(g.why_the_proxy_misleads || ''));
+      row.appendChild(pr);
+    }
+    if (g.required_event) {
+      var re = g.required_event;
+      var spec = el('div', 'spec');
+      spec.appendChild(document.createTextNode('event ' + re.name + ' {\n'));
+      (re.fields || []).forEach(function (fl, i) {
+        spec.appendChild(document.createTextNode('  ' + fl
+          + (i < (re.fields.length - 1) ? ',' : '') + '\n'));
+      });
+      spec.appendChild(document.createTextNode('}\n'));
+      var c1 = el('span', 'c', 'grain: ' + (re.grain || '?') + '   owner: ' + (re.owner || '?'));
+      spec.appendChild(c1);
+      if (re.calibration_needs) {
+        spec.appendChild(document.createTextNode('\n'));
+        spec.appendChild(el('span', 'c', 'calibration needs: ' + re.calibration_needs));
+      }
+      row.appendChild(spec);
+      row.appendChild(el('p', 'small dim', 'That turns a gap into a ticket for a named team.'));
+    }
+    s.appendChild(row);
+  });
+
+  /* The cardinality refusal has no ask to hang off, so it would otherwise be invisible. It is
+   * the second refusal, and it is a refusal, so it belongs on this panel. */
+  var refused = [];
+  (R.metrics || []).forEach(function (m) {
+    ((m.plan || {}).refused_breakdowns || []).forEach(function (x) {
+      if (refused.indexOf(x) < 0) refused.push(x);
+    });
+  });
+  if (refused.length) {
+    var row = el('div', 'gap');
+    var hd = el('div', 'hd');
+    hd.style.display = 'flex';
+    hd.style.gap = '11px';
+    hd.style.alignItems = 'baseline';
+    hd.style.flexWrap = 'wrap';
+    var q = el('strong', null, '“Break that down per customer for me.”');
+    q.style.fontSize = '15.5px';
+    hd.appendChild(q);
+    hd.appendChild(el('span', 'tag amber', 'REFUSED — CARDINALITY'));
+    row.appendChild(hd);
+    var p = el('p', 'small');
+    p.style.marginTop = '9px';
+    p.style.maxWidth = '84ch';
+    p.textContent = 'Refused, not truncated. Silently returning the top 200 of these would look '
+      + 'like an answer and would not be one: ' + refused.join('; ') + '.';
+    row.appendChild(p);
+    s.appendChild(row);
+  }
+  return s;
+}
+
+/* ---------- self-assessment --------------------------------------------------------------- */
+function renderSelf() {
+  var sa = R.self_assessment;
+  if (!sa || !sa.notes) return null;
+  var s = el('section');
+  s.appendChild(el('h2', null, 'How often we are right'));
+  var acc = sa.prescription_accuracy || {};
+  var keys = Object.keys(acc);
+  if (keys.length) {
+    keys.forEach(function (k) {
+      var e = acc[k];
+      var row = el('div', 'dis');
+      var hd = el('div', 'hd');
+      hd.appendChild(el('strong', null, k));
+      hd.appendChild(el('span', 'small dim', 'n=' + e.n
+        + (e.improved != null ? ' · ' + e.improved + ' improved' : '')
+        + (e.broke_golden_set ? ' · ' + e.broke_golden_set + ' broke the golden set' : '')));
+      if (e.hit_rate != null) hd.appendChild(el('span', 'tag green', 'hit rate ' + fmtPct(e.hit_rate, 0)));
+      else hd.appendChild(el('span', 'tag grey', 'hit rate not computed'));
+      row.appendChild(hd);
+      if (e.hit_rate_declined_because) row.appendChild(el('p', 'small dim', e.hit_rate_declined_because));
+      s.appendChild(row);
+    });
+  }
+  var n = el('p', 'small');
+  n.style.maxWidth = '84ch';
+  n.style.marginTop = '12px';
+  n.textContent = sa.notes;
+  s.appendChild(n);
+  return s;
+}
+
+/* ---------- bootstrap --------------------------------------------------------------------- */
+function render() {
+  var app = $('#app');
+  app.innerHTML = '';
+  renderSysbar();
+  var f = IDX.regs[cur];
+  if (!f) {
+    var s = el('section');
+    s.appendChild(el('h1', null, 'Nothing in this deployment needs a decision.'));
+    s.appendChild(el('p', 'dim', 'The scan found no regression. That is a result, not an empty '
+      + 'screen — what it examined and dismissed is below, with the reasons.'));
+    app.appendChild(s);
+  } else {
+    app.appendChild(renderFinding(f));
+    app.appendChild(renderMeasured(f));
+    var w = renderWhy(f);
+    if (w) app.appendChild(w);
+    var pr = renderPropose(f);
+    if (pr) app.appendChild(pr);
+  }
+  app.appendChild(renderDismissals());
+  app.appendChild(renderGaps());
+  var sa = renderSelf();
+  if (sa) app.appendChild(sa);
+
+  var fr = el('div', 'frozen');
+  fr.appendChild(el('span', null, '🔒'));
+  fr.appendChild(el('span', null, 'Metric definitions, the judge version and the '
+    + 'good-conversation standard are frozen. This system proposes changes to the agent, never to '
+    + 'the yardstick. Every number on this page is read from loop-report.json; the screen reads a '
+    + 'static report and does not stream.'));
+  app.appendChild(fr);
+}
+
+function load(then) {
+  fetch('/report', { cache: 'no-store' }).then(function (r) { return r.json(); })
+    .then(function (rep) {
+      if (rep && rep.error) throw new Error(rep.error + ' — ' + (rep.hint || rep.detail || ''));
+      R = rep;
+      IDX = buildIndex(R);
+      if (cur >= IDX.regs.length) cur = Math.max(0, IDX.regs.length - 1);
+      render();
+      if (then) then();
+    })
+    .catch(function (e) {
+      $('#app').innerHTML = '<section><h1>No report to read.</h1><p class="dim">' + esc(String(e))
+        + '</p><div class="raw">python3 -m engine.cli --kit nexus-loop-day1/kit --team solo --out engine/out/loop-report.json\n'
+        + 'python3 screen/serve.py --report engine/out/loop-report.json</div></section>';
+    });
+}
+
+/* The operator asks, in their own words. These come from the kit's asks.md and are the questions
+ * the report answers or refuses; the report stores only their ids. */
+window.ASK_TEXT = {
+  A01: 'What share of conversations did we handle end to end without a human?',
+  A02: 'Are we getting better or worse month over month?',
+  A03: 'Which intents cost us the most per resolved conversation?',
+  A04: 'How often did a tool call fail?',
+  A05: 'Where are people dropping out of the returns journey?',
+  A06: 'Is the knowledge base actually answering what people ask?',
+  A07: 'Did the model upgrade help or hurt?',
+  A08: 'How much did we spend serving customers this month, and on what?',
+  A09: 'How many users gave up out of frustration rather than getting what they wanted and leaving?',
+  A10: 'Which conversations should a human review this week?',
+  A11: 'What is our failover rate — how often did a primary model or tool fail and an '
+       + 'alternate serve the user instead?'
+};
+
+load();
+
+</script>
+</body>
+</html>

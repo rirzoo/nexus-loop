@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime
+import hashlib
 import json
 
 
@@ -24,7 +25,7 @@ def assemble(team, corpus_variant, metrics, gaps, findings, diagnoses,
         assert p["diagnosis_id"] in dids, (
             "prescription %s references missing diagnosis %s" % (p["id"], p["diagnosis_id"]))
 
-    return {
+    rep = {
         "team": team,
         "corpus": corpus_variant,
         "generated_at": datetime.datetime.now(datetime.timezone.utc)
@@ -39,6 +40,15 @@ def assemble(team, corpus_variant, metrics, gaps, findings, diagnoses,
         "gaps": gaps,
         "self_assessment": self_assessment or {"cycles": 0, "prescription_accuracy": {}},
     }
+    # report_build: a content hash the screen binds a human's APPROVE/REJECT to, so a
+    # decision made against evidence that was since regenerated is refused rather than
+    # silently mis-attributed. Purely additive — it is derived from the report already
+    # built above and touches no metric. generated_at is excluded so the id tracks the
+    # evidence, not the wall clock: a byte-identical rebuild keeps the same id.
+    core = {k: rep[k] for k in rep if k != "generated_at"}
+    rep["report_build"] = "sha256:" + hashlib.sha256(
+        json.dumps(core, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    return rep
 
 
 def write(report: dict, out_path: str) -> None:

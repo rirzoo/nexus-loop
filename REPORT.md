@@ -236,6 +236,24 @@ lookback constraint forces the mix-shift decoy into the last slot. **In variant 
 to the end of the corpus; in the sealed corpus every fault is an episode that recovers.** We had built
 step detectors and validated them on the one layout where a step and an episode look identical.
 
+> ### ⚠️ Disclosure — what this sweep is, and what it is not
+>
+> **We generated these corpora with our own passphrases. We never had the organisers' secret, and
+> we never built or possessed a sealed kit or its answer key.** `make sealed` — the organiser-only
+> target — was never run here; the only key on this machine is `kit/ground_truth/`, which ships with
+> the practice kit precisely so teams can self-score all week.
+>
+> The kit's own `README.md` §"Keeping the day-6 test honest" states the property this relies on:
+> *"The sealed layout is derived from a passphrase, not stored… **Nobody can regenerate it from this
+> repo alone.**"* That is exactly the guarantee we left intact. Our passphrases produce **different**
+> layouts from the sealed one — we sampled the *space* the organisers draw from, never their draw.
+>
+> **So the honest claim is narrow: the engine is robust across this generator's layout space — not a
+> proven claim about arbitrary real-world deployments.** The sealed corpus is drawn from that same
+> space and the PS names the axes it varies (*"different: Days, Tenants, Slices of traffic"*), which
+> is why the sweep predicts day 6 far better than any transform of variant A. But it is fitting to a
+> *distribution*, not to an instance, and we would rather say so than let the number imply more.
+
 Measured, before any fix — 15 sealed layouts, engine untouched:
 
 | | practice A | sealed layouts |

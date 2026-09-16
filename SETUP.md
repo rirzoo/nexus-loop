@@ -83,6 +83,11 @@ every diagnosis/prescription linked; consumed cleanly by the organisers' `score.
 Every finding with `is_regression: true` is guaranteed to have `impact`, `audience`, and
 `if_nothing_changes` — so a card never shows a number without a decision attached.
 
+One `cause_class` needs its own handling: **`unknown`** — a confirmed regression the engine could not
+classify, whose prescription proposes no fix (`change_type: "no_action"`). It never fires on the
+practice corpus but can on the sealed one. See **[`UNKNOWN_CAUSE_CLASS.md`](UNKNOWN_CAUSE_CLASS.md)**
+for what to render, the gotchas, and how to generate a fixture report containing one.
+
 The **prescription `decision`** block (always present) is exactly what the operator approves:
 
 ```json
@@ -228,4 +233,5 @@ untouched on the sealed corpus.
 | `nexus-loop-day1/tools/nexus-loop-kit/schema/loop-report.schema.json` | the report schema (field-by-field truth) |
 | `nexus-loop-day1/tools/nexus-loop-kit/replay/serve.py` | the replay endpoint (§5) |
 | `nexus-loop-day1/tools/nexus-loop-kit/score.py` | the organisers' scorer (§6) |
+| `UNKNOWN_CAUSE_CLASS.md` | the `unknown` cause class — what the screen must handle (§3) |
 | `REPORT.md` | architecture + what's real/stubbed + challenges (source for the write-up & demo) |

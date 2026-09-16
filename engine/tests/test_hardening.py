@@ -235,7 +235,8 @@ class SealedRunHardening(unittest.TestCase):
     def test_unexplained_fires_on_synthetic_drop(self):
         # The open-world safety net must actually trigger, not merely exist: inject a
         # novel sustained resolution drop with no kb/tool/cost signature and no config
-        # change, and assert it surfaces as 'unexplained' rather than being dropped.
+        # change, and assert it surfaces as the schema's 'unknown' cause_class rather
+        # than being dropped.
         base = self._run(self.sessions, self.tool_calls, self.kb_lookups, self.config_rows)
         real_intents = {(f["tenant"], f["cohort"].get("intent"))
                         for f in self._real_findings(base).values()}
@@ -268,7 +269,7 @@ class SealedRunHardening(unittest.TestCase):
                and fmap[d["finding_id"]]["cohort"].get("intent") == i}
         print("synthetic drop on (%s,%s): diagnoses=%s" % (t, i, sorted(hit)))
         self.assertTrue(hit, "a novel sustained drop was silently dropped")
-        self.assertIn("unexplained", hit)
+        self.assertIn("unknown", hit)
 
     def test_drop_one_fault(self):
         # Count independence: the engine must not assume "exactly three". Remove one
@@ -342,6 +343,84 @@ class SealedRunHardening(unittest.TestCase):
             r.pop("generated_at", None)  # the only intentionally time-varying field
         self.assertEqual(json.dumps(r1, sort_keys=True), json.dumps(r2, sort_keys=True),
                          "report is nondeterministic across identical runs")
+
+
+def _kit_tools_available():
+    try:
+        from engine import stress_sealed
+        stress_sealed._load_kit_tools()
+        return True
+    except SystemExit:
+        return False
+    except ImportError:
+        return False
+
+
+class SealedLayouts(unittest.TestCase):
+    """The transforms above re-time the practice corpus; this rebuilds it.
+
+    Shifting every day by a constant or thinning traffic keeps the faults where variant A
+    put them — at the end of the corpus, running until the data stops. The sealed corpus
+    places them from day 6 with 15-40 healthy days after each one, so a fault is an
+    episode that recovers rather than a step that persists. Nothing else in this file
+    exercises that, and it is the difference between 55/55 and missing every fault.
+
+    Three fixed layouts, ~15s each, so the suite stays runnable. Each was chosen for the
+    edge it covers, not at random:
+      gate-0000  prompt regression starts day 6 — barely a week of history before it
+      gate-0001  KB cohort is born day 7 and then runs healthy for 35 more days
+      gate-0005  tool contract breaks on day 5 — inside week 0, no before-period at all
+    `stress_sealed.py --n 20` is the deep sweep to run before a freeze."""
+
+    SECRETS = ("gate-0000", "gate-0001", "gate-0005")
+
+    @classmethod
+    def setUpClass(cls):
+        if not _kit_tools_available():
+            raise unittest.SkipTest("kit generator not present — cannot build sealed layouts")
+        from engine import paths, stress_sealed
+        cls.mod = stress_sealed
+        cls.tools = stress_sealed._load_kit_tools()
+        cls.catalog = paths.load_catalog(KIT)
+
+    def test_full_marks_on_sealed_layouts(self):
+        world, labels_mod, Simulator, scorer = self.tools
+        for secret in self.SECRETS:
+            schedule, rep, total, sections = self.mod.run_layout(
+                world, labels_mod, Simulator, scorer, self.catalog, secret)
+            print("sealed %-20s %s -> %.2f/55"
+                  % (secret, self.mod.describe(schedule), total))
+            causes = {d["cause_class"] for d in rep["diagnoses"]}
+            self.assertTrue(REAL <= causes,
+                            "%s: missing real faults %s" % (secret, REAL - causes))
+            self.assertTrue(DECOY <= causes,
+                            "%s: missing decoys %s" % (secret, DECOY - causes))
+            self.assertEqual(total, 55.0,
+                             "%s scored %.2f/55: %s"
+                             % (secret, total,
+                                [n for _, notes in sections.values() for n in notes
+                                 if n.startswith(("MISS", "FALSE", "STRAY", "QUIET"))]))
+
+    def test_cause_classes_are_schema_valid(self):
+        """Every cause_class we can emit must be in the report schema's enum. 'unknown'
+        is the member for a confirmed-but-unclassified deviation; there is no
+        'unexplained'. This only bites on a corpus where the safety net fires, which is
+        never variant A — so assert it here, where such corpora exist."""
+        import json
+        schema_path = os.path.join(os.path.dirname(KIT), "tools", "nexus-loop-kit",
+                                   "schema", "loop-report.schema.json")
+        with open(schema_path) as f:
+            schema = json.load(f)
+        allowed = set(schema["properties"]["diagnoses"]["items"]
+                      ["properties"]["cause_class"]["enum"])
+        world, labels_mod, Simulator, scorer = self.tools
+        for secret in self.SECRETS:
+            _, rep, _, _ = self.mod.run_layout(
+                world, labels_mod, Simulator, scorer, self.catalog, secret)
+            for d in rep["diagnoses"]:
+                self.assertIn(d["cause_class"], allowed,
+                              "%s emits cause_class %r, which the schema rejects"
+                              % (secret, d["cause_class"]))
 
 
 class PreflightAndDegradation(unittest.TestCase):

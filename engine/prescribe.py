@@ -8,7 +8,8 @@ untouched on the sealed corpus.
 
 Rules of the mapping:
   * A decoy (`is_regression: False`) gets NO prescription — there is nothing to fix.
-  * An `unexplained` regression gets `no_action` — investigate, never a fabricated fix.
+  * An `unknown` (confirmed but unclassified) regression gets `no_action` — investigate,
+    never a fabricated fix.
   * `change_type` is the DIRECT fix class for the cause; the replay endpoint only moves a
     metric when the change matches the fault's accepted class, so the prediction is
     honest only if the mapping is right.
@@ -24,7 +25,7 @@ _FIX = {
     "kb.gap":              ("kb.add",       "resolution_rate"),
     "tool.contract_break": ("tool.validate", "resolution_rate"),
     "prompt.regression":   ("prompt.edit",  "median_turns"),
-    "unexplained":         ("no_action",    "resolution_rate"),
+    "unknown":             ("no_action",    "resolution_rate"),
 }
 
 
@@ -80,7 +81,7 @@ def _decision(cause_class, finding, target):
                 "median turns does not fall in replay, or resolution drops when the "
                 "prompt is trimmed.",
         }
-    # unexplained
+    # unknown — confirmed deviation, cause not classified
     return {
         "asking_approval_for":
             "Investigate the unexplained resolution drop in %s before any change is "

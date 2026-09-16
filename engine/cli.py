@@ -76,8 +76,16 @@ def compute_report(team, corpus_variant, catalog, sessions, tool_calls, kb_looku
         sessions, tool_calls, kb_lookups, config_rows, std, covered)
     findings += fs
     diagnoses += ds
-    for detect in (detect_decoys.detect_traffic_mix,
-                   detect_decoys.detect_load_event,
+    # Every cohort now carrying a regression, including the ones the safety net just
+    # found. The mix-shift test needs them so it does not read a real fault elsewhere in
+    # the tenant as a per-cohort rate move.
+    covered |= {(f["tenant"], f["cohort"].get("intent")) for f in findings
+                if f["cohort"].get("intent")}
+    fs, ds = detect_decoys.detect_traffic_mix(
+        sessions, tool_calls, kb_lookups, config_rows, covered)
+    findings += fs
+    diagnoses += ds
+    for detect in (detect_decoys.detect_load_event,
                    detect_decoys.detect_judge_boundary):
         fs, ds = detect(sessions, tool_calls, kb_lookups, config_rows)
         findings += fs

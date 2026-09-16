@@ -9,7 +9,7 @@ trap reads it correctly; silent_tool_success follows as the 'derived' companion.
 """
 from __future__ import annotations
 
-from . import aggregate, coverage
+from . import aggregate, cohorts, coverage
 
 
 def _cov(value, basis, excluded=None):
@@ -103,7 +103,7 @@ def author_metrics(sessions, tool_calls, kb_lookups, calibration) -> list:
     # A04 measured FIRST (so the fidelity trap reads 'measured'), per tenant.
     for t in tenants:
         metrics.append({
-            "id": "m_tool_fail_" + t.split("-")[0], "name": "Tool failure rate — " + t,
+            "id": "m_tool_fail_" + cohorts.tenant_slug(t), "name": "Tool failure rate — " + t,
             "ask_id": "A04", "grain": "step", "fidelity": "measured",
             "coverage": _cov(v3[t], "v2_flow sessions emit no tool_call rows and are "
                                     "excluded from the denominator, not counted as "
@@ -122,7 +122,7 @@ def author_metrics(sessions, tool_calls, kb_lookups, calibration) -> list:
     # failed answer. Declared per the catalog's derivable_not_declared rule.
     for t in tenants:
         metrics.append({
-            "id": "m_silent_tool_" + t.split("-")[0],
+            "id": "m_silent_tool_" + cohorts.tenant_slug(t),
             "name": "Silent tool success (empty 200) — " + t,
             "ask_id": "A04", "grain": "step", "fidelity": "derived",
             "coverage": _cov(v3[t], "derived from tool_call rows, same v3-only "
@@ -140,7 +140,7 @@ def author_metrics(sessions, tool_calls, kb_lookups, calibration) -> list:
 
     for t in tenants:
         metrics.append({
-            "id": "m_cost_" + t.split("-")[0], "name": "Cost per session — " + t,
+            "id": "m_cost_" + cohorts.tenant_slug(t), "name": "Cost per session — " + t,
             "ask_id": "A08", "grain": "session", "fidelity": "measured",
             "coverage": _cov(v3[t], "cost_usd is emitted on llm_call steps, which "
                                     "v2_flow lacks; v3-only, denominator stated",
@@ -156,7 +156,7 @@ def author_metrics(sessions, tool_calls, kb_lookups, calibration) -> list:
 
     for t in tenants:
         metrics.append({
-            "id": "m_kb_fallthrough_" + t.split("-")[0],
+            "id": "m_kb_fallthrough_" + cohorts.tenant_slug(t),
             "name": "KB fallthrough rate — " + t,
             "ask_id": "A06", "grain": "step", "fidelity": "measured",
             "coverage": _cov(v3[t], "kb_lookup steps only exist on v3 traffic; "

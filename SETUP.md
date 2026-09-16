@@ -160,6 +160,18 @@ python3 engine/selfcheck.py --report engine/out/loop-report.json
 
 Both currently report **55.0 / 55** on the full variant-A corpus.
 
+The variant-A score is necessary but not sufficient — the practice corpus plants its faults at the
+very end of the eight weeks, and the sealed one does not. The number that actually predicts day 6:
+
+```bash
+python3 engine/stress_sealed.py --n 80
+```
+
+This builds corpora the way the organisers build the sealed one (from a passphrase, in memory — no
+files written), runs the engine untouched on each, and scores them with the organisers' `score.py`.
+It currently reports **mean 55.00 / 55, min 55.00** over 80 layouts. Run it with a fresh `--prefix`
+before the freeze; it exits non-zero if any layout scores below 55.
+
 ---
 
 ## 7. Two rules the product side must not break
@@ -190,9 +202,15 @@ your screen at whatever `--out` path you used and you're done.
 
 If the sealed kit has a schema quirk, the preflight (above) tells you immediately: a **FATAL** line
 names the exact missing file/column so it can be fixed before the clock runs out, and any **WARNING**
-means the engine degraded around it and still produced a valid report (check `system_notes`). The
-engine keys on **no** absolute day, tenant, or fault taxonomy, and is tested to hold as a cohort thins
-to roughly a third of its practice volume — so the same command runs untouched on the sealed corpus.
+means the engine degraded around it and still produced a valid report (check `system_notes`).
+
+The engine keys on **no** absolute day, tenant, fault taxonomy, or position of a fault within the eight
+weeks. The evidence for that last one is the sweep in §6: 80 corpora generated from the same
+`sealed_schedule` function the organisers use, all scoring 55.0 / 55 with the engine untouched. (It
+matters: the practice corpus plants its faults in the last fortnight, the sealed one usually plants
+them in the first, and detectors that only recognise a permanent step score ~35 on the latter.) The
+engine also holds as a cohort thins to roughly a third of its practice volume. So the same command runs
+untouched on the sealed corpus.
 
 ---
 
@@ -204,6 +222,7 @@ to roughly a third of its practice volume — so the same command runs untouched
 | `engine/cli.py` | the one entrypoint (§2) |
 | `engine/preflight.py` | read-only kit validation run automatically before §2 |
 | `engine/replay/client.py` | the opt-in verification stage (§5) |
+| `engine/stress_sealed.py` | the sealed-layout sweep (§6) — scores the engine on corpora shaped like day 6's |
 | `engine/out/loop-report.json` | the artifact your screen reads (git-ignored) |
 | `nexus-loop-day1/kit/` | corpus, catalog, labels |
 | `nexus-loop-day1/tools/nexus-loop-kit/schema/loop-report.schema.json` | the report schema (field-by-field truth) |

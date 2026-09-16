@@ -2,12 +2,18 @@
 
 The design rule: **no detector iterates config_timeline by `kind` to decide WHERE to
 look.** We enumerate cohorts from the data, and for cohorts with history we find the
-change-point from the cohort's *own* metric series (the largest sustained level shift),
-not from a config row. config_timeline is consulted only at the end, to *attribute* a
-surviving regression to the nearest change (of any kind) using cause-precedes-effect.
-The `cause_class` is a CLASSIFIER over the metric signature (low kb_hit, empty-200 rise,
-cost/turns inflation), never read off the config kind — so a genuine deviation with no
-matching change is still reported, as `unexplained`.
+episode from the cohort's *own* metric series, not from a config row. config_timeline is
+consulted only at the end, to *attribute* a surviving regression to the nearest change (of
+any kind) using cause-precedes-effect. The `cause_class` is a CLASSIFIER over the metric
+signature (low kb_hit, empty-200 rise, cost/turns inflation), never read off the config
+kind — so a genuine deviation with no matching change is still reported, as `unknown`.
+
+A planted fault is an EPISODE, not a permanent step: it starts, runs for a week or three,
+and the deployment recovers inside the corpus. So every detector locates a contiguous run
+of weeks (`_best_pulse`) and compares it against the cohort's own traffic OUTSIDE that run,
+rather than splitting the series at one point into before/after. That is what makes the
+engine indifferent to *where* in the eight weeks a fault was planted — including one that
+begins in week 0 and so has no before-period at all.
 
 Thresholds are the verify.py release-gate magnitudes (a contract that holds on the
 sealed corpus), used as an acceptance floor; the deployment's own noise band
@@ -33,10 +39,11 @@ F2_EMPTY_RISE = 0.06      # our own tell (verify does not gate it), margin above
 F3_COST_RISE = 1.15       # verify 1.20, margin
 LOW_KB_HIT = 0.5
 # agnostic knobs (data-driven, not fault-specific)
-SPAN = 14                 # before/after comparison span in days
-MIN_AFTER_WEEKS = 2       # a shift must persist to count as sustained, not a blip
+SPAN = 14                 # attribution lookback span in days
+MIN_PULSE_WEEKS = 1       # shortest run of weeks that can count as an episode
 NOISE_K = 3.0             # a deviation must exceed this many typical weekly wobbles
 UNEXPLAINED_DROP = 0.12   # a large resolution drop we cannot classify is still reported
+UNEXPLAINED_MIN_WEEKS = 2 # ...and it must last, or it is a blip, not a regression
 
 
 def _rate(rows, pred):
@@ -56,26 +63,22 @@ def _weekly(rows, reducer, min_n=15):
     return {w: reducer(rs) for w, rs in wk.items() if len(rs) >= min_n}
 
 
-def _sustained_shift(weekly):
-    """Find the split that maximizes the level change between the weeks before it and
-    the weeks from it onward. Returns the change-point or None; direction/magnitude are
-    judged by the caller. Uses the MEAN of the weekly points on each side (not the
-    median): the weekly values are already robust aggregates, and the mean tracks a level
-    step cleanly, whereas a nearest-rank median flattens a peak and lets several splits
-    tie — which would pick a spurious early onset that straddles the real change."""
-    weeks = sorted(weekly)
-    best = None
-    for i in range(1, len(weeks)):
-        before = [weekly[w] for w in weeks[:i]]
-        after = [weekly[w] for w in weeks[i:]]
-        if len(after) < MIN_AFTER_WEEKS:
-            continue
-        bm = sum(before) / len(before)
-        am = sum(after) / len(after)
-        cand = {"onset_week": weeks[i], "before": bm, "after": am}
-        if best is None or abs(am - bm) > abs(best["after"] - best["before"]):
-            best = cand
-    return best
+def _best_pulse(weekly, direction, min_weeks=MIN_PULSE_WEEKS, min_baseline_weeks=1):
+    """cohorts.best_run over a WEEKLY series — see there for why detection hunts episodes
+    rather than before/after steps. Weekly buckets are the right resolution for a metric
+    series: a rate needs a week's worth of sessions behind it to be worth comparing."""
+    return cohorts.best_run(weekly, direction, min_len=min_weeks,
+                            min_baseline=min_baseline_weeks)
+
+
+def _pulse_days(pulse):
+    """The inclusive day range a weekly pulse covers. The onset is week-floored, so it is
+    never later than the true onset — detection lag is charged from this, and rounding
+    down can only help honesty, never inflate it."""
+    return pulse["start"] * 7, pulse["end"] * 7 + 6
+
+
+_in_out = cohorts.split_in_out
 
 
 def _attribute(config_rows, tenant, onset_day, prefer_kinds=None, span=SPAN):
@@ -119,6 +122,12 @@ def _window_start(detected_from, change):
 # --------------------------------------------------------------------------------------
 # F1 shape: born-below-peers (peer axis). A cohort with no before-period can only be
 # judged against sibling cohorts. Enumerated over intents, not over config rows.
+#
+# The cohort outlives the gap: a product line launches, answers badly while the KB is
+# empty, and keeps serving traffic after the content lands. Judging it on its LIFETIME
+# average mixes the broken window with the healthy tail and hides the fault entirely once
+# the tail is the longer half — so the gap window is located first (from the cohort's own
+# kb_hit series) and both gates are then evaluated inside it.
 # --------------------------------------------------------------------------------------
 
 def detect_kb_gap(sessions, tool_calls, kb_lookups, config_rows, std):
@@ -138,18 +147,31 @@ def detect_kb_gap(sessions, tool_calls, kb_lookups, config_rows, std):
             klookups = kb_by_intent.get(intent, [])
             if len(klookups) < cohorts.MIN_COHORT_SESSIONS:
                 continue  # not a KB-driven intent
-            kb_hit_rate = _rate(klookups, lambda k: k.get("kb_hit"))
-            res = cohorts.resolution_rate(isess)
+            # Locate the gap window from the cohort's own kb_hit series. A cohort with one
+            # week of history has no series to search, so it falls back to its lifetime —
+            # which is the whole of what we know about it anyway.
+            weekly_hit = _weekly(klookups, lambda rs: _rate(rs, lambda k: k.get("kb_hit")))
+            pulse = _best_pulse(weekly_hit, -1) if len(weekly_hit) > 1 else None
+            if pulse:
+                onset, last = _pulse_days(pulse)
+            else:
+                onset = cohorts.first_appearance_day(isess)
+                last = max(s["day"] for s in isess)
+            wlookups, _ = _in_out(klookups, onset, last)
+            wsess, _ = _in_out(isess, onset, last)
+            if len(wsess) < cohorts.MIN_COHORT_SESSIONS:
+                continue
+            kb_hit_rate = _rate(wlookups, lambda k: k.get("kb_hit"))
+            res = cohorts.resolution_rate(wsess)
             if not (kb_hit_rate < LOW_KB_HIT and res < peer_median - F1_PEER_GAP):
                 continue
-            onset = cohorts.first_appearance_day(isess)
-            last = max(s["day"] for s in isess)
+            onset = max(onset, cohorts.first_appearance_day(isess))
             change = _attribute(config_rows, tenant, onset, prefer_kinds=("kb",))
-            top_scores = [k.get("kb_top_score") for k in klookups
+            top_scores = [k.get("kb_top_score") for k in wlookups
                           if k.get("kb_top_score") is not None]
             tw = [s for s in tsessions if onset <= s["day"] <= last]
-            share = len(isess) / len(tw) if tw else 0.0
-            fid = "f_kbgap_%s_%s" % (tenant.split("-")[0], intent)
+            share = len(wsess) / len(tw) if tw else 0.0
+            fid = "f_kbgap_%s_%s" % (cohorts.tenant_slug(tenant), intent)
             findings.append({
                 "id": fid, "tenant": tenant, "cohort": {"intent": intent},
                 "metric": "resolution_rate",
@@ -157,14 +179,15 @@ def detect_kb_gap(sessions, tool_calls, kb_lookups, config_rows, std):
                 "observed": round(res, 4), "expected": round(peer_median, 4),
                 "is_regression": True, "severity": "critical",
                 "evidence": [
-                    "kb_hit is true on only %.0f%% of lookups in this cohort" % (kb_hit_rate * 100),
+                    "kb_hit is true on only %.0f%% of this cohort's lookups in days %d-%d"
+                    % (kb_hit_rate * 100, onset, last),
                     "kb_top_score sits low (median %.2f) — no confident document"
                     % (cohorts.median(top_scores) if top_scores else 0.0),
                     "cohort resolution %.3f vs tenant peer median %.3f" % (res, peer_median),
                     ("attributed to config day %d: %s '%s'" % (change["day"], change["kind"], change["note"]))
                     if change else "no before-period; visible only against peers",
                 ],
-                "impact": _kb_impact(isess, peer_median, res, share),
+                "impact": _kb_impact(wsess, peer_median, res, share),
                 "audience": ["agent_builder", "business_owner"],
                 "if_nothing_changes": (
                     "This cohort keeps resolving near %.0f%% against a peer norm of "
@@ -226,11 +249,11 @@ def detect_tool_contract_break(sessions, tool_calls, kb_lookups, config_rows, st
             continue
         weekly_empty = _weekly([c for c in calls if c["outcome"] == "ok"],
                                lambda rs: _rate(rs, lambda c: c.get("result_field_count") == 0))
-        shift = _sustained_shift(weekly_empty)
-        if not shift or (shift["after"] - shift["before"]) <= F2_EMPTY_RISE:
+        pulse = _best_pulse(weekly_empty, +1) if len(weekly_empty) > 1 else None
+        if not pulse or (pulse["inside"] - pulse["outside"]) <= F2_EMPTY_RISE:
             continue
-        onset_day = shift["onset_week"] * 7
-        before, after = cohorts.before_after(calls, onset_day, SPAN)
+        onset_day, end_day = _pulse_days(pulse)
+        after, before = _in_out(calls, onset_day, end_day)
         if len(before) < 15 or len(after) < 15:
             continue
         err_b = _rate(before, lambda c: c["outcome"] in ("error", "timeout"))
@@ -243,20 +266,20 @@ def detect_tool_contract_break(sessions, tool_calls, kb_lookups, config_rows, st
         retry_a = _rate(after, lambda c: (c.get("retry_count") or 0) > 0)
         intent = _dominant(calls, "intent")
         isess = [s for s in sessions if s["tenant"] == tenant and s["intent"] == intent]
-        sb, sa = cohorts.before_after(isess, onset_day, SPAN)
+        sa, sb = _in_out(isess, onset_day, end_day)
         res_b, res_a = cohorts.resolution_rate(sb), cohorts.resolution_rate(sa)
 
         if not (abs(err_a - err_b) < TOL_FLAT_ERR and (empty_a - empty_b) > F2_EMPTY_RISE
                 and res_a < res_b - F2_RES_DROP):
             continue
         change = _attribute(config_rows, tenant, onset_day, prefer_kinds=("tool",))
-        tw = [s for s in sessions if s["tenant"] == tenant and onset_day <= s["day"] < onset_day + SPAN]
+        tw = [s for s in sessions if s["tenant"] == tenant and onset_day <= s["day"] <= end_day]
         share = len(sa) / len(tw) if tw else 0.0
-        fid = "f_toolbreak_%s_%s" % (tenant.split("-")[0], tool)
+        fid = "f_toolbreak_%s_%s" % (cohorts.tenant_slug(tenant), tool)
         findings.append({
             "id": fid, "tenant": tenant, "cohort": {"intent": intent, "tool": tool},
             "metric": "resolution_rate",
-            "window": {"from_day": _window_start(onset_day, change), "to_day": onset_day + SPAN},
+            "window": {"from_day": _window_start(onset_day, change), "to_day": end_day},
             "observed": round(res_a, 4), "expected": round(res_b, 4),
             "is_regression": True, "severity": "high",
             "evidence": [
@@ -264,9 +287,11 @@ def detect_tool_contract_break(sessions, tool_calls, kb_lookups, config_rows, st
                 "empty-200 share (result_field_count=0) rises %.3f -> %.3f" % (empty_b, empty_a),
                 "same-tool retry_count>0 rises %.3f -> %.3f" % (retry_b, retry_a),
                 "%s resolution %.3f -> %.3f" % (intent, res_b, res_a),
-                ("onset day %d (detected from empty-200 series); attributed to config day %d: %s %s->%s"
-                 % (onset_day, change["day"], change["kind"], change["from_value"], change["to_value"]))
-                if change else "onset day %d; no config change nearby" % onset_day,
+                ("episode days %d-%d (detected from the empty-200 series, compared against this "
+                 "tool's own traffic outside it); attributed to config day %d: %s %s->%s"
+                 % (onset_day, end_day, change["day"], change["kind"],
+                    change["from_value"], change["to_value"]))
+                if change else "episode days %d-%d; no config change nearby" % (onset_day, end_day),
             ],
             "impact": _drop_impact(sa, res_b, res_a, share),
             "audience": ["agent_builder", "platform_owner"],
@@ -302,11 +327,11 @@ def detect_prompt_regression(sessions, tool_calls, kb_lookups, config_rows, std)
             if len(asess) < cohorts.MIN_COHORT_SESSIONS:
                 continue
             weekly_cost = _weekly(asess, lambda rs: _mean([s.get("cost_usd") for s in rs]))
-            shift = _sustained_shift(weekly_cost)
-            if not shift or shift["before"] <= 0 or shift["after"] <= shift["before"] * F3_COST_RISE:
+            pulse = _best_pulse(weekly_cost, +1) if len(weekly_cost) > 1 else None
+            if not pulse or pulse["outside"] <= 0 or pulse["inside"] <= pulse["outside"] * F3_COST_RISE:
                 continue
-            onset_day = shift["onset_week"] * 7
-            before, after = cohorts.before_after(asess, onset_day, SPAN)
+            onset_day, end_day = _pulse_days(pulse)
+            after, before = _in_out(asess, onset_day, end_day)
             if len(before) < 15 or len(after) < 15:
                 continue
             turns_b = cohorts.median([s["turns"] for s in before])
@@ -318,22 +343,24 @@ def detect_prompt_regression(sessions, tool_calls, kb_lookups, config_rows, std)
                     and abs(res_a - res_b) < TOL_FLAT_RES):
                 continue
             change = _attribute(config_rows, tenant, onset_day, prefer_kinds=("prompt", "model"))
-            tw = [s for s in sessions if s["tenant"] == tenant and onset_day <= s["day"] < onset_day + SPAN]
+            tw = [s for s in sessions if s["tenant"] == tenant and onset_day <= s["day"] <= end_day]
             share = len(after) / len(tw) if tw else 0.0
-            fid = "f_promptreg_%s_%s" % (tenant.split("-")[0], agent)
+            fid = "f_promptreg_%s_%s" % (cohorts.tenant_slug(tenant), agent)
             findings.append({
                 "id": fid, "tenant": tenant, "cohort": {"agent_id": agent},
                 "metric": "turns_to_resolve",
-                "window": {"from_day": _window_start(onset_day, change), "to_day": onset_day + SPAN},
+                "window": {"from_day": _window_start(onset_day, change), "to_day": end_day},
                 "observed": round(turns_a, 2), "expected": round(turns_b, 2),
                 "is_regression": True, "severity": "high",
                 "evidence": [
                     "median turns %.1f -> %.1f" % (turns_b, turns_a),
                     "cost per session %.4f -> %.4f (+%.0f%%)" % (cost_b, cost_a, (cost_a / cost_b - 1) * 100),
                     "resolution FLAT %.3f -> %.3f (within week-to-week noise)" % (res_b, res_a),
-                    ("onset day %d (detected from cost series); attributed to config day %d: %s %s->%s"
-                     % (onset_day, change["day"], change["kind"], change["from_value"], change["to_value"]))
-                    if change else "onset day %d; no config change nearby" % onset_day,
+                    ("episode days %d-%d (detected from the cost series, compared against this "
+                     "agent's own traffic outside it); attributed to config day %d: %s %s->%s"
+                     % (onset_day, end_day, change["day"], change["kind"],
+                        change["from_value"], change["to_value"]))
+                    if change else "episode days %d-%d; no config change nearby" % (onset_day, end_day),
                 ],
                 "impact": _cost_impact(after, cost_b, cost_a, share),
                 "audience": ["agent_builder", "business_owner"],
@@ -358,8 +385,15 @@ def detect_prompt_regression(sessions, tool_calls, kb_lookups, config_rows, std)
 # --------------------------------------------------------------------------------------
 # Novel/unexplained: a large, sustained resolution drop on a cohort that none of the
 # classified signatures explained. Reported honestly rather than dropped — this is the
-# open-world safety net for a fault kind we did not anticipate. Gated hard so it never
-# fires on noise.
+# open-world safety net for a fault kind we did not anticipate.
+#
+# It is also the one detector with no corroborating signal: the classified three each
+# require a multi-signal AND, while this one has only "resolution fell". Flagging a
+# non-fault costs more than missing a real one, and a stray regression here lands a false
+# alarm on every decoy whose window it overlaps — so it carries three gates the others do
+# not need: the drop must LAST (a single week is a blip), it must clear the noise of THIS
+# cohort rather than the deployment average (a small cohort wobbles more, and a pooled band
+# is set by the big ones), and it must leave a real baseline behind it.
 # --------------------------------------------------------------------------------------
 
 def detect_unexplained(sessions, tool_calls, kb_lookups, config_rows, std, covered):
@@ -369,43 +403,52 @@ def detect_unexplained(sessions, tool_calls, kb_lookups, config_rows, std, cover
         tsessions = [s for s in sessions if s["tenant"] == tenant]
         by_intent = cohorts.by_intent(tsessions)
         series = [_weekly(ss, cohorts.resolution_rate) for ss in by_intent.values()]
-        noise = std_mod.noise_band([s for s in series if len(s) > 1])
-        floor = max(UNEXPLAINED_DROP, NOISE_K * noise)
+        pooled_noise = std_mod.noise_band([s for s in series if len(s) > 1])
         for intent, isess in by_intent.items():
             if len(isess) < cohorts.MIN_COHORT_SESSIONS or (tenant, intent) in covered:
                 continue
             weekly = _weekly(isess, cohorts.resolution_rate)
-            shift = _sustained_shift(weekly)
-            if not shift or (shift["before"] - shift["after"]) <= floor:
+            # This cohort's own week-to-week wobble, floored by the deployment's. A 230-a-week
+            # intent swings several points on sampling alone; judging it by a band that the
+            # 500-a-week intents set is how a blip gets reported as a regression.
+            noise = max(pooled_noise, std_mod.noise_band([weekly]))
+            floor = max(UNEXPLAINED_DROP, NOISE_K * noise)
+            pulse = (_best_pulse(weekly, -1, min_weeks=UNEXPLAINED_MIN_WEEKS,
+                                 min_baseline_weeks=2)
+                     if len(weekly) > UNEXPLAINED_MIN_WEEKS else None)
+            if not pulse or (pulse["outside"] - pulse["inside"]) <= floor:
                 continue
-            onset_day = shift["onset_week"] * 7
+            onset_day, end_day = _pulse_days(pulse)
             change = _attribute(config_rows, tenant, onset_day)
-            before, after = cohorts.before_after(isess, onset_day, SPAN)
+            after, before = _in_out(isess, onset_day, end_day)
             share = len(after) / max(1, len([s for s in tsessions
-                                             if onset_day <= s["day"] < onset_day + SPAN]))
-            fid = "f_unexplained_%s_%s" % (tenant.split("-")[0], intent)
+                                             if onset_day <= s["day"] <= end_day]))
+            fid = "f_unexplained_%s_%s" % (cohorts.tenant_slug(tenant), intent)
             findings.append({
                 "id": fid, "tenant": tenant, "cohort": {"intent": intent},
                 "metric": "resolution_rate",
-                "window": {"from_day": _window_start(onset_day, change), "to_day": onset_day + SPAN},
-                "observed": round(shift["after"], 4), "expected": round(shift["before"], 4),
+                "window": {"from_day": _window_start(onset_day, change), "to_day": end_day},
+                "observed": round(pulse["inside"], 4), "expected": round(pulse["outside"], 4),
                 "is_regression": True, "severity": "medium",
                 "evidence": [
-                    "sustained resolution drop %.3f -> %.3f at onset day %d"
-                    % (shift["before"], shift["after"], onset_day),
-                    "exceeds the deployment noise band (%.3f) and the floor (%.3f)" % (noise, floor),
+                    "sustained resolution drop %.3f -> %.3f over days %d-%d"
+                    % (pulse["outside"], pulse["inside"], onset_day, end_day),
+                    "held for %d consecutive weeks and exceeds this cohort's own noise band "
+                    "(%.3f) and the floor (%.3f)" % (pulse["n"], noise, floor),
                     "no kb, tool, or cost signature matched — cause not classified",
                     ("nearest config day %d: %s" % (change["day"], change["kind"]))
                     if change else "no config change nearby — likely environmental",
                 ],
-                "impact": _drop_impact(after, shift["before"], shift["after"], share),
+                "impact": _drop_impact(after, pulse["outside"], pulse["inside"], share),
                 "audience": ["agent_builder", "platform_owner"],
                 "if_nothing_changes": (
                     "A real, sustained drop with no identified cause — it must be "
                     "investigated before it is trusted or dismissed."),
             })
             diagnoses.append({
-                "id": "d_" + fid, "finding_id": fid, "cause_class": "unexplained",
+                # 'unknown' is the report schema's enum value for a deviation we confirmed
+                # but could not classify — there is no 'unexplained' member.
+                "id": "d_" + fid, "finding_id": fid, "cause_class": "unknown",
                 "confidence": 0.5,
                 "attributed_change": ({"kind": change["kind"], "day": change["day"]}
                                       if change else None),

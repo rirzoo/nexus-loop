@@ -8,7 +8,7 @@ import json
 
 def assemble(team, corpus_variant, metrics, gaps, findings, diagnoses,
              standard=None, system_notes="", prescriptions=None, verifications=None,
-             self_assessment=None) -> dict:
+             self_assessment=None, summary_plain=None, whats_real=None) -> dict:
     # Guard: finding ids must be unique, and every diagnosis must point at a real
     # finding (the scorer only credits linked diagnoses).
     fids = [f["id"] for f in findings]
@@ -39,6 +39,10 @@ def assemble(team, corpus_variant, metrics, gaps, findings, diagnoses,
         "verifications": verifications or [],
         "gaps": gaps,
         "self_assessment": self_assessment or {"cycles": 0, "prescription_accuracy": {}},
+        # The plain-language layer the screen reads. It sits inside the hash below on
+        # purpose: an approval is bound to the words the person read, not just the numbers.
+        "summary_plain": summary_plain or "",
+        "whats_real": whats_real or [],
     }
     # report_build: a content hash the screen binds a human's APPROVE/REJECT to, so a
     # decision made against evidence that was since regenerated is refused rather than

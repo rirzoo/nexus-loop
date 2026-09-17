@@ -11,6 +11,7 @@ import sys
 
 from . import coverage, gaps, io_corpus, metrics, paths, preflight, report
 from . import cohorts, standard, detect_faults, detect_decoys, prescribe, selfassess
+from . import narrate
 
 
 def build_report(kit_dir: str, team: str, sample: bool = False, warnings=None) -> dict:
@@ -109,10 +110,17 @@ def compute_report(team, corpus_variant, catalog, sessions, tool_calls, kb_looku
     if warn_note:
         notes = (notes + " " + warn_note).strip()
 
+    # ---- narration: the same facts, said in a way a stranger can act on. Runs before
+    # assembly so the wording is covered by report_build; see engine/narrate.py. ----
+    narration = narrate.annotate(findings, diagnoses, prescriptions, g, m, std,
+                                 self_assessment)
+
     return report.assemble(team, corpus_variant, m, g, findings,
                            diagnoses, standard=std, system_notes=notes,
                            prescriptions=prescriptions,
-                           self_assessment=self_assessment)
+                           self_assessment=self_assessment,
+                           summary_plain=narration["summary_plain"],
+                           whats_real=narration["whats_real"])
 
 
 def main() -> int:

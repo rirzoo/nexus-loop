@@ -177,6 +177,8 @@ def detect_kb_gap(sessions, tool_calls, kb_lookups, config_rows, std):
                 "metric": "resolution_rate",
                 "window": {"from_day": _window_start(onset, change), "to_day": last},
                 "observed": round(res, 4), "expected": round(peer_median, 4),
+                # Born broken: there is no before-period, so the yardstick is peer traffic.
+                "baseline_axis": "peer",
                 "is_regression": True, "severity": "critical",
                 "evidence": [
                     "kb_hit is true on only %.0f%% of this cohort's lookups in days %d-%d"
@@ -281,6 +283,7 @@ def detect_tool_contract_break(sessions, tool_calls, kb_lookups, config_rows, st
             "metric": "resolution_rate",
             "window": {"from_day": _window_start(onset_day, change), "to_day": end_day},
             "observed": round(res_a, 4), "expected": round(res_b, 4),
+            "baseline_axis": "own_past",
             "is_regression": True, "severity": "high",
             "evidence": [
                 "declared tool error rate flat: %.4f -> %.4f (outcome stays 'ok')" % (err_b, err_a),
@@ -351,6 +354,7 @@ def detect_prompt_regression(sessions, tool_calls, kb_lookups, config_rows, std)
                 "metric": "turns_to_resolve",
                 "window": {"from_day": _window_start(onset_day, change), "to_day": end_day},
                 "observed": round(turns_a, 2), "expected": round(turns_b, 2),
+                "baseline_axis": "own_past",
                 "is_regression": True, "severity": "high",
                 "evidence": [
                     "median turns %.1f -> %.1f" % (turns_b, turns_a),
@@ -429,6 +433,7 @@ def detect_unexplained(sessions, tool_calls, kb_lookups, config_rows, std, cover
                 "metric": "resolution_rate",
                 "window": {"from_day": _window_start(onset_day, change), "to_day": end_day},
                 "observed": round(pulse["inside"], 4), "expected": round(pulse["outside"], 4),
+                "baseline_axis": "own_past",
                 "is_regression": True, "severity": "medium",
                 "evidence": [
                     "sustained resolution drop %.3f -> %.3f over days %d-%d"

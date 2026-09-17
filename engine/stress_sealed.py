@@ -119,6 +119,14 @@ def run_layout(world, labels_mod, Simulator, scorer, catalog, secret, seed=42):
     corpus = build_corpus(world, labels_mod, Simulator, schedule, label, seed)
     rep = cli.compute_report("solo", label, catalog, *corpus, corpus[0])
     total, sections = score_report(scorer, rep, world.ground_truth(schedule, label))
+    # The screen reads the plain-language layer, and a sealed layout is allowed to produce
+    # a cohort shape we have never seen. A finding that arrives without its sentence would
+    # render as a blank headline in front of a judge, so it fails here instead.
+    for f in rep["findings"]:
+        for field in ("title_plain", "what_happened", "where_plain"):
+            if not f.get(field):
+                sections["accuracy"][1].append(
+                    "NARRATION missing %s on %s" % (field, f["id"]))
     return schedule, rep, total, sections
 
 
@@ -167,7 +175,7 @@ def main() -> int:
         for name, (val, notes) in sections.items():
             for note in notes:
                 if a.verbose or note.startswith(("MISS", "FALSE", "STRAY", "QUIET",
-                                                 "FIDELITY", "MISSED")):
+                                                 "FIDELITY", "MISSED", "NARRATION")):
                     print("      %-12s %s" % (name, note))
         if secret != "A":
             totals.append(total)

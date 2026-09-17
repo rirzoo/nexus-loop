@@ -107,11 +107,48 @@ every diagnosis/prescription linked; consumed cleanly by the organisers' `score.
 | `prescriptions` | the proposed fix + a `decision` block (see below) | the APPROVE/REJECT card |
 | `gaps` | what could **not** be measured, with a spec | the "honest refusal" panel |
 | `standard` | the mined "good" the deployment is judged against | context / benchmark line |
-| `verifications` | replay before/after (empty until you run §4) | the "we proved the fix" panel |
-| `self_assessment` | the return arrow (opens after §4) | "how accurate were our predictions" |
+| `verifications` | replay before/after (empty until you run §5) | the "we proved the fix" panel |
+| `self_assessment` | the return arrow (opens after §5) | "how accurate were our predictions" |
+| `summary_plain` | the whole run in plain words, deliberately with no figures in it | the opening paragraph |
+| `whats_real` | `{key, claim, status, why}` per claim — what is real, what is templated, what has not been run | the honesty panel |
 
 Every finding with `is_regression: true` is guaranteed to have `impact`, `audience`, and
 `if_nothing_changes` — so a card never shows a number without a decision attached.
+
+### The plain-language fields
+
+`engine/narrate.py` adds a wording layer beside the numbers, so a screen does not have to
+invent sentences from raw fields. They are additive: the schema allows them and `score.py`
+ignores them. They are also inside `report_build`, so a recorded decision is bound to the
+words the operator read.
+
+On every finding:
+
+| Field | What it is |
+|-------|-----------|
+| `title_plain` | the problem in one sentence, with no numbers in it |
+| `where_plain` | the slice in an operator's words, e.g. "the get_order_status tool, on northwind-retail" |
+| `what_happened` | two to four sentences explaining it without jargon |
+| `cause_plain` | the cause and the change behind it, or a plain statement that none lines up |
+| `status_short` / `status_plain` | how long it ran and whether it is traced to anything |
+| `baseline` + `baseline_plain` | `{axis: "peer" \| "own_past", value, source, why}` — which yardstick and **why that one** |
+| `rank` | 1..n over the regressions, by severity then size. Order your list by this |
+| `needs_your_inference` | `true` when the cause class is `unknown`. Skip the cause and the fix; ask the operator instead |
+| `effect_plain` | ordered `[{key, headline, detail, field}]`, the PS's impact list |
+| `outcome_band` | `{total, segments: [{key, label, count}], caption}` — what became of those conversations |
+| `dismissed_plain` | on `is_regression: false` only: why it is not a fault |
+
+Two of those need care, because they are the ones that differ per finding:
+
+- **`effect_plain` only carries the blocks whose data exists.** `impact.downstream` differs by
+  detector, so loop the list and render what is in it; do not index by position or assume a
+  fixed set. `field` is the dotted path if you want to attach your own click-through.
+- **`outcome_band` is absent when the fault never moved an outcome.** A cost-and-turns
+  regression resolves at the same rate it always did, so there is no split to draw, and drawing
+  one would imply harm that is not there. Fall back to observed against baseline.
+
+Also: `predicted_plain` on each prescription, and `plain: {asked, refused_because,
+what_would_have_to_exist}` on each gap.
 
 One `cause_class` needs its own handling: **`unknown`** — a confirmed regression the engine could not
 classify, whose prescription proposes no fix (`change_type: "no_action"`). It never fires on the

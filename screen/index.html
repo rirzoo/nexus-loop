@@ -4,1312 +4,1433 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Loop Desk</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 rx=%273%27 fill=%27%2316191d%27/%3E%3Ccircle cx=%278%27 cy=%278%27 r=%274%27 fill=%27none%27 stroke=%27%23fff%27 stroke-width=%271.6%27/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 rx=%274%27 fill=%27%23f7f9fc%27/%3E%3Ccircle cx=%278%27 cy=%278%27 r=%274.2%27 fill=%27none%27 stroke=%27%232f3aa8%27 stroke-width=%271.6%27/%3E%3Ccircle cx=%278%27 cy=%278%27 r=%271.1%27 fill=%27%232f3aa8%27/%3E%3C/svg%3E">
 <style>
+/* =========================================================================================
+   Loop Desk — one problem at a time, at the reader's pace.
+
+   Colour carries meaning here, never decoration: every hue is one of the three ways a
+   conversation can end, so the same colour always says the same thing. Proportions are
+   drawn rather than spelled — a bar reads faster than "4.51%" and does not pretend to a
+   precision the coverage cannot support. The figure itself is one click away, and arrives
+   with its definition, its fidelity and what it excludes.
+
+   One file, no build step, no network, no web fonts: it has to run untouched and offline
+   on the sealed corpus.
+   ========================================================================================= */
 :root{
-  --ink:#16191d; --ink-2:#4a5158; --ink-3:#6b737b; --rule:#dfe3e8; --rule-2:#eef1f4;
-  --bg:#f6f7f9; --card:#ffffff; --accent:#1c4f9c; --accent-ink:#ffffff;
-  --bad:#a8321f; --bad-bg:#fdf2f0; --good:#1f6b43; --good-bg:#f1f8f4;
-  --warn:#8a5a09; --warn-bg:#fdf7ec; --mute:#f2f4f7;
-  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
-  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  /* how a conversation ended — the only source of hue in the product */
+  --resolved:#2E9E6B; --resolved-soft:#E6F4EC;
+  --handoff:#C98A22;  --handoff-soft:#FBF2E0;
+  --abandoned:#CC5B45; --abandoned-soft:#FBEDEA;
+  --refused:#6B5BD6;  --refused-soft:#EFECFC;
+  --act:#2F3AA8;      --act-soft:#ECEEF9;
+
+  --bg:#F7F9FC;
+  --ink:#12161C; --ink-2:#48515C; --ink-3:#6E7884;
+  --hair:rgba(18,22,28,.09); --hair-2:rgba(18,22,28,.05);
+
+  --glass:rgba(255,255,255,.62);
+  --glass-solid:rgba(255,255,255,.88);
+  --glass-edge:rgba(255,255,255,.75);
+  --shadow:0 1px 2px rgba(18,28,45,.04), 0 14px 44px rgba(18,28,45,.09);
+  --shadow-pop:0 20px 60px rgba(18,28,45,.20);
+
+  --r-control:12px; --r-card:20px; --r-stage:28px;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
 }
 *{box-sizing:border-box}
-html,body{margin:0;padding:0}
-body{background:var(--bg);color:var(--ink);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
-.wrap{max-width:1180px;margin:0 auto;padding:0 20px 64px}
+html,body{height:100%;margin:0;padding:0}
+body{
+  background:var(--bg);color:var(--ink);
+  font:15.5px/1.6 var(--sans);-webkit-font-smoothing:antialiased;
+  display:flex;flex-direction:column;overflow:hidden;position:relative;
+}
+/* The wash behind the glass. Its hue is the state of the run: warm while decisions are
+   outstanding, cooling to green once the last one is recorded. */
+body::before{
+  content:"";position:fixed;inset:-25%;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(48% 42% at 22% 12%, var(--wash-a,rgba(201,138,34,.16)), transparent 70%),
+    radial-gradient(44% 46% at 84% 78%, var(--wash-b,rgba(47,58,168,.12)), transparent 72%);
+  transition:background 1.2s ease;
+}
+body[data-state="clear"]{
+  --wash-a:rgba(46,158,107,.18); --wash-b:rgba(46,158,107,.08);
+}
+.tnum{font-variant-numeric:tabular-nums lining-nums}
+button{font-family:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--act);outline-offset:3px;border-radius:4px}
 
-/* ---- system bar ---------------------------------------------------------- */
-.sysbar{position:sticky;top:0;z-index:40;background:var(--ink);color:#e8ecf1;font-size:12.5px}
-.sysbar .in{max-width:1180px;margin:0 auto;padding:7px 20px;display:flex;gap:18px;
-  align-items:center;flex-wrap:wrap}
-.sysbar b{color:#fff;font-weight:600}
-.sysbar .sp{flex:1}
-.sysbar code{font:11.5px var(--mono);color:#9fb4d0}
-.nav{display:flex;gap:6px;align-items:center}
-.nav button{font:inherit;background:#2b3138;color:#e8ecf1;border:1px solid #3d444c;
-  border-radius:5px;padding:3px 10px;cursor:pointer}
-.nav button:hover:not(:disabled){background:#3a424b}
-.nav button:disabled{opacity:.35;cursor:default}
+.glass{
+  background:var(--glass);
+  -webkit-backdrop-filter:blur(28px) saturate(1.7);
+  backdrop-filter:blur(28px) saturate(1.7);
+  border:1px solid var(--glass-edge);
+  box-shadow:var(--shadow);
+}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .glass{background:rgba(255,255,255,.93)}
+}
 
-/* ---- generic ------------------------------------------------------------- */
-section{background:var(--card);border:1px solid var(--rule);border-radius:9px;
-  margin-top:14px;padding:20px 22px}
-h2{font-size:11.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-3);
-  margin:0 0 14px;font-weight:700}
-h2 .cnt{color:var(--ink-2);letter-spacing:0;text-transform:none;font-weight:500}
-p{margin:0 0 10px}
-.dim{color:var(--ink-2)}
-.small{font-size:13px}
-button{font-family:inherit}
+/* ---- top bar ----------------------------------------------------------------------------- */
+.bar{
+  flex:0 0 auto;z-index:3;display:flex;align-items:center;gap:14px;
+  padding:11px 20px;font-size:13px;color:var(--ink-2);
+}
+.bar .mark{display:flex;align-items:center;gap:8px;font-weight:650;color:var(--ink);font-size:14px}
+.bar .ring{width:11px;height:11px;border-radius:50%;border:2px solid var(--act)}
+.bar .sp{flex:1}
+.bar .quiet{color:var(--ink-3)}
+.bar code{font:11.5px var(--mono);color:var(--ink-3);background:rgba(18,22,28,.05);
+  padding:3px 8px;border-radius:7px}
 
-/* ---- hero ---------------------------------------------------------------- */
-.rail{display:flex;gap:9px;align-items:center;font-size:12.5px;font-weight:600;
-  padding:7px 12px;border-radius:6px;margin-bottom:16px}
-.rail.ended{background:var(--warn-bg);color:var(--warn);border:1px solid #f0e0c0}
-.rail.live{background:var(--bad-bg);color:var(--bad);border:1px solid #f3d9d3}
-.rail.done{background:var(--good-bg);color:var(--good);border:1px solid #cfe6da}
-h1{font-size:30px;line-height:1.22;margin:0 0 6px;font-weight:600;letter-spacing:-.015em;
-  max-width:26ch}
-.scope{font-size:13px;color:var(--ink-2);margin-bottom:22px}
-.heroes{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:22px 0 4px}
-.hero{border-left:3px solid var(--rule);padding-left:13px}
-.hero .v{font-size:33px;line-height:1.1;font-weight:600;letter-spacing:-.02em}
-.hero .l{font-size:12.5px;color:var(--ink-2);margin-top:3px}
+/* ---- room -------------------------------------------------------------------------------- */
+.room{flex:1 1 auto;min-height:0;z-index:1;display:grid;
+  grid-template-columns:minmax(320px,30%) 1fr;gap:16px;padding:0 16px 16px}
+.ledger{min-height:0;overflow:auto;border-radius:var(--r-card);padding:20px 18px 24px}
+.stage{min-height:0;overflow:hidden;border-radius:var(--r-stage);display:flex;flex-direction:column}
 
-/* ---- numerals are buttons ------------------------------------------------ */
-.n{background:none;border:none;padding:0;margin:0;font:inherit;color:inherit;cursor:pointer;
-  border-bottom:1px dotted #9aa3ad;text-align:left}
-.n:hover{border-bottom-style:solid;background:#eef3fb}
-.n:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--accent);
-  outline-offset:2px;border-radius:2px}
+/* ---- ledger ------------------------------------------------------------------------------ */
+.summary{font-size:16px;line-height:1.62;color:var(--ink);margin:0 0 22px;max-width:40ch}
+.group{margin-bottom:22px}
+.group h2{font-size:13px;font-weight:650;color:var(--ink-3);margin:0 0 9px;letter-spacing:0}
+.row{
+  width:100%;text-align:left;background:transparent;border:1px solid transparent;
+  border-radius:var(--r-control);padding:11px 12px;cursor:pointer;display:block;
+  transition:background .14s,border-color .14s;
+}
+.row:hover{background:rgba(255,255,255,.62);border-color:var(--hair-2)}
+.row[aria-current="true"]{background:rgba(255,255,255,.9);border-color:var(--hair);
+  box-shadow:0 1px 2px rgba(18,28,45,.05)}
+.row .rt{font-size:14.5px;line-height:1.38;font-weight:550;display:flex;gap:8px;align-items:flex-start}
+.row .rw{font-size:12.5px;color:var(--ink-3);margin-top:3px}
+.row .sev{flex:0 0 auto;width:7px;height:7px;border-radius:50%;margin-top:7px}
+.row .tick{flex:0 0 auto;color:var(--resolved);font-weight:700}
+.row.settled .rt{color:var(--ink-2);font-weight:450}
+.miniband{display:flex;height:5px;border-radius:3px;overflow:hidden;margin-top:8px;max-width:150px}
+.miniband i{display:block;height:100%}
+.miniband i.resolved{background:var(--resolved)}
+.miniband i.handoff{background:var(--handoff)}
+.miniband i.abandoned{background:var(--abandoned)}
+.ctx .row .rt{font-weight:450;font-size:14px;color:var(--ink-2)}
+.count{margin-left:auto;font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
 
-/* ---- callout ------------------------------------------------------------- */
-.callout{border:1px solid #f0e0c0;background:var(--warn-bg);border-radius:7px;padding:13px 16px;
-  margin:18px 0}
-.callout .k{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--warn);
-  font-weight:700;margin-bottom:5px}
+/* ---- stage: progress, slide, footer ------------------------------------------------------ */
+.progress{flex:0 0 auto;display:flex;gap:5px;padding:16px 26px 0}
+.progress button{flex:1 1 0;background:none;border:0;padding:0 0 7px;cursor:pointer;
+  font-size:11.5px;color:var(--ink-3);text-align:left;min-width:0}
+.progress button i{display:block;height:3px;border-radius:2px;background:rgba(18,22,28,.11);margin-bottom:6px}
+.progress button[aria-current="true"]{color:var(--ink)}
+.progress button[aria-current="true"] i{background:var(--act)}
+.progress button.seen i{background:rgba(47,58,168,.34)}
+.progress span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-/* ---- decision ask -------------------------------------------------------- */
-.askrow{display:grid;grid-template-columns:190px 1fr;gap:22px;margin-top:18px;
-  padding-top:18px;border-top:1px solid var(--rule-2)}
-.chip{display:inline-block;background:var(--ink);color:#fff;border-radius:5px;
-  padding:5px 11px;font-size:12.5px;font-weight:600}
-.k{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);
-  font-weight:700;margin-bottom:5px}
+.slide{flex:1 1 auto;min-height:0;overflow:auto;padding:22px 26px 8px}
+/* A short slide sits in the middle of the stage rather than clinging to the top edge,
+   so a single sentence reads as deliberate instead of unfinished. */
+.slide.mid{display:flex;flex-direction:column;justify-content:center}
+.slide.enter{animation:rise .24s cubic-bezier(.2,.7,.3,1) both}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
-/* ---- evidence ------------------------------------------------------------ */
-.ev{padding:15px 0;border-top:1px solid var(--rule-2)}
-.ev:first-of-type{border-top:none;padding-top:4px}
-.ev .top{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
-.ev .nm{font-weight:600;min-width:210px}
-.bar{height:9px;background:var(--mute);border-radius:5px;overflow:hidden;
-  margin:9px 0 7px;max-width:420px;position:relative}
-.bar i{display:block;height:100%;background:var(--ink-2);border-radius:5px}
-.bar.bad i{background:var(--bad)}
-.prov{font-size:12.5px;color:var(--ink-3);display:flex;gap:7px;align-items:center;flex-wrap:wrap}
-.base{font-size:13.5px;color:var(--ink-2);margin-top:8px;max-width:78ch;
-  border-left:2px solid var(--rule);padding-left:11px}
-.raw{font:12px/1.65 var(--mono);color:var(--ink-2);background:var(--mute);border-radius:6px;
-  padding:11px 13px;margin-top:11px;white-space:pre-wrap;overflow-x:auto}
+.foot{flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:12px 26px 18px}
+.foot .sp{flex:1}
+.foot .hint{font-size:12.5px;color:var(--ink-3)}
 
-/* ---- disclosure ---------------------------------------------------------- */
-details{margin-top:11px}
-summary{cursor:pointer;font-size:12.5px;color:var(--accent);font-weight:600;
-  list-style:none;display:inline-block;padding:2px 0}
-summary::-webkit-details-marker{display:none}
-summary:before{content:"▸ ";font-size:10px}
-details[open]>summary:before{content:"▾ "}
+/* ---- slide content ----------------------------------------------------------------------- */
+.headline{font-size:34px;line-height:1.16;font-weight:620;letter-spacing:-.021em;
+  margin:6px 0 18px;max-width:22ch}
+.lede{font-size:17px;line-height:1.6;color:var(--ink-2);max-width:56ch;margin:0 0 18px}
+.scope{font-size:13px;color:var(--ink-3);display:flex;flex-wrap:wrap;gap:7px 16px;align-items:center}
+h3.sec{font-size:15px;font-weight:620;margin:0 0 4px}
+p.body{font-size:15px;line-height:1.62;color:var(--ink-2);max-width:62ch;margin:0 0 14px}
+.card{background:var(--glass-solid);border:1px solid var(--hair-2);border-radius:var(--r-card);
+  padding:16px 18px;margin-bottom:12px}
+.card.quiet{background:rgba(255,255,255,.5)}
+.card > h3{margin-bottom:8px}
 
-/* ---- actions ------------------------------------------------------------- */
-.acts{display:flex;gap:11px;margin-top:20px;flex-wrap:wrap}
-.btn{border:1px solid var(--rule);background:#fff;border-radius:7px;padding:12px 24px;
-  font-size:14.5px;font-weight:600;cursor:pointer;color:var(--ink)}
-.btn:hover{background:var(--mute)}
-.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
-.btn.pri:hover{filter:brightness(1.1)}
-.btn.warn:hover{background:var(--bad-bg);border-color:#e9c4bc;color:var(--bad)}
-.btn.sm{padding:6px 13px;font-size:13px;font-weight:500}
-.receipt{border:1px solid var(--rule);border-radius:8px;padding:15px 17px;margin-top:18px}
-.receipt.ok{background:var(--good-bg);border-color:#cfe6da}
-.receipt.no{background:var(--warn-bg);border-color:#f0e0c0}
-.receipt.df{background:var(--mute)}
-.receipt .hd{font-weight:700;font-size:14px;margin-bottom:5px;display:flex;gap:8px;
-  align-items:center;flex-wrap:wrap}
+/* the outcome band — what became of those conversations */
+.band{display:flex;height:14px;border-radius:7px;overflow:hidden;margin:2px 0 10px}
+.band i{display:block;height:100%}
+.band i.resolved{background:var(--resolved)}
+.band i.handoff{background:var(--handoff)}
+.band i.abandoned{background:var(--abandoned)}
+.key{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--ink-2)}
+.key span{display:inline-flex;align-items:center;gap:7px}
+.key b{width:9px;height:9px;border-radius:3px;display:inline-block}
 
-/* ---- dismissals / gaps --------------------------------------------------- */
-.dis{border-top:1px solid var(--rule-2);padding:13px 0}
-.dis:first-of-type{border-top:none}
-.dis .hd{display:flex;gap:11px;align-items:baseline;flex-wrap:wrap}
-.tag{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
-  border-radius:4px;padding:2px 7px;white-space:nowrap}
-.tag.grey{background:var(--mute);color:var(--ink-2)}
-.tag.red{background:var(--bad-bg);color:var(--bad)}
-.tag.green{background:var(--good-bg);color:var(--good)}
-.tag.amber{background:var(--warn-bg);color:var(--warn)}
-.gap{border-top:1px solid var(--rule-2);padding:17px 0}
-.gap:first-of-type{border-top:none;padding-top:2px}
-.spec{font:12.5px/1.75 var(--mono);background:var(--ink);color:#dfe6ee;border-radius:7px;
-  padding:13px 15px;margin-top:11px;overflow-x:auto;white-space:pre}
-.spec .c{color:#8fa8c4}
+/* effect rows: a label, a drawn proportion, a figure you can open */
+.eff{display:grid;grid-template-columns:1fr auto;gap:4px 16px;align-items:baseline;
+  padding:11px 0;border-top:1px solid var(--hair-2)}
+.eff:first-of-type{border-top:0}
+.eff .lab{font-size:14.5px;color:var(--ink);max-width:40ch}
+.eff .val{font-size:20px;font-weight:600;letter-spacing:-.01em}
+.sub{display:flex;align-items:center;gap:10px;margin-top:2px;flex-wrap:wrap}
+.eff .sub{grid-column:1/-1}
+.cap{font-size:12.5px;color:var(--ink-3)}
 
-/* ---- footer -------------------------------------------------------------- */
-.frozen{margin-top:16px;padding:14px 18px;border:1px dashed var(--rule);border-radius:8px;
-  font-size:13px;color:var(--ink-2);display:flex;gap:11px;align-items:flex-start}
+/* a drawn proportion */
+.meter{background:none;border:0;padding:0;margin:0;cursor:pointer;display:flex;
+  align-items:center;gap:9px;min-width:0;flex:1 1 auto;max-width:280px}
+.meter .track{flex:1 1 auto;height:7px;border-radius:4px;background:rgba(18,22,28,.09);overflow:hidden}
+/* a share small enough to round to nothing still has to be visible as something */
+.meter .track i{display:block;height:100%;border-radius:4px;background:var(--act);min-width:3px}
+.meter:hover .track{background:rgba(18,22,28,.14)}
+.meter .track i.resolved{background:var(--resolved)}
+.meter .track i.handoff{background:var(--handoff)}
+.meter .track i.abandoned{background:var(--abandoned)}
+.meter .track i.refused{background:var(--refused)}
+.meter .track i.thin{opacity:.45}
 
-/* ---- modal --------------------------------------------------------------- */
-.scrim{position:fixed;inset:0;background:rgba(18,21,25,.42);display:flex;align-items:center;
-  justify-content:center;z-index:100;padding:20px}
-.modal{background:#fff;border-radius:11px;max-width:600px;width:100%;padding:24px 26px;
-  max-height:86vh;overflow:auto;box-shadow:0 12px 44px rgba(0,0,0,.2)}
-.modal h3{margin:0 0 14px;font-size:17px}
-.modal label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-2);
-  margin:14px 0 5px}
-.modal input,.modal textarea{width:100%;font:14px var(--sans);padding:9px 11px;
-  border:1px solid var(--rule);border-radius:6px;background:#fff;color:var(--ink)}
-.modal textarea{min-height:76px;resize:vertical}
-.reasons{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
-.reasons button{font-size:12.5px;padding:5px 11px;border:1px solid var(--rule);
-  border-radius:20px;background:#fff;cursor:pointer;color:var(--ink-2)}
-.reasons button:hover{background:var(--mute);border-color:#c3cad2}
-.confirm{background:var(--mute);border-radius:7px;padding:13px 15px;margin:16px 0;
-  font:12.5px/1.8 var(--mono);color:var(--ink-2)}
-.err{background:var(--bad-bg);border:1px solid #f3d9d3;color:var(--bad);border-radius:6px;
-  padding:10px 13px;margin-top:13px;font-size:13.5px}
-.pop{position:absolute;z-index:200;background:#fff;border:1px solid var(--rule);border-radius:9px;
-  box-shadow:0 10px 32px rgba(0,0,0,.17);padding:16px 18px;max-width:430px;font-size:13.5px}
-.pop .t{font-weight:700;margin-bottom:7px}
-.pop dt{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);
-  font-weight:700;margin-top:11px}
-.pop dd{margin:3px 0 0}
-.pop .lock{margin-top:13px;padding-top:10px;border-top:1px solid var(--rule-2);
+/* paired comparison: where it sits now against where it should */
+.pair{margin:4px 0 6px}
+.pair .line{display:flex;align-items:center;gap:12px;padding:5px 0}
+.pair .nm{font-size:13.5px;color:var(--ink-2);flex:0 0 120px}
+
+.num{background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;cursor:pointer;
+  border-bottom:1px dotted rgba(18,22,28,.32)}
+.num:hover{color:var(--act);border-bottom-color:var(--act)}
+
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:6px}
+.chip{border:1px solid var(--hair);border-radius:99px;padding:4px 12px;font-size:13px;
+  color:var(--ink-2);background:rgba(255,255,255,.6)}
+.flag{border:1px solid rgba(201,138,34,.3);background:var(--handoff-soft);
+  border-radius:var(--r-card);padding:14px 16px;margin-bottom:12px}
+.flag h3{color:#8a5d0c}
+.stop{border:1px solid rgba(204,91,69,.28);background:var(--abandoned-soft);
+  border-radius:var(--r-card);padding:14px 16px;margin-bottom:12px}
+.stop h3{color:#9b3d2a}
+.good{border:1px solid rgba(46,158,107,.3);background:var(--resolved-soft);
+  border-radius:var(--r-card);padding:14px 16px;margin-bottom:12px}
+
+.evline{display:flex;gap:10px;font-size:14px;padding:9px 0;border-top:1px solid var(--hair-2);
+  color:var(--ink-2);line-height:1.55}
+.evline:first-child{border-top:0}
+.evline .dot{color:var(--act);flex:0 0 auto}
+.prov{font-size:12.5px;color:var(--ink-3);display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:5px}
+.tag{font-size:12px;border-radius:7px;padding:3px 9px;white-space:nowrap}
+.tag.grey{background:rgba(18,22,28,.06);color:var(--ink-2)}
+.tag.red{background:var(--abandoned-soft);color:#9b3d2a}
+.tag.green{background:var(--resolved-soft);color:#1a6b45}
+.tag.amber{background:var(--handoff-soft);color:#8a5d0c}
+.tag.violet{background:var(--refused-soft);color:#4a3cab}
+
+.chain{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0 14px}
+.node{border:1px solid var(--hair);border-radius:var(--r-control);padding:9px 13px;
+  background:rgba(255,255,255,.66);max-width:210px}
+.node .nk{font-size:12px;color:var(--ink-3);margin-bottom:2px}
+.node .nv{font-size:13.5px;font-weight:560;line-height:1.3}
+.node.bad{background:var(--abandoned-soft);border-color:rgba(204,91,69,.25)}
+.node.mid{background:var(--handoff-soft);border-color:rgba(201,138,34,.25)}
+.node.fix{background:var(--act-soft);border-color:rgba(47,58,168,.25)}
+.arrow{color:var(--ink-3)}
+
+/* ---- buttons ----------------------------------------------------------------------------- */
+.btn{border:1px solid var(--hair);background:rgba(255,255,255,.7);border-radius:var(--r-control);
+  padding:10px 18px;font-size:14.5px;font-weight:560;cursor:pointer;
+  transition:background .14s,border-color .14s,transform .06s}
+.btn:hover{background:#fff}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.42;cursor:default}
+.btn.go{background:var(--act);border-color:var(--act);color:#fff}
+.btn.go:hover{background:#3a46c4}
+.btn.no:hover{background:var(--abandoned-soft);border-color:rgba(204,91,69,.3);color:#9b3d2a}
+.btn.sm{padding:7px 13px;font-size:13px}
+.linky{background:none;border:0;padding:0;color:var(--act);font:inherit;font-weight:560;cursor:pointer}
+.linky:hover{text-decoration:underline}
+.expand{border:1px solid var(--hair);background:rgba(255,255,255,.6);border-radius:var(--r-control);
+  padding:7px 13px;font-size:13px;color:var(--ink-2);cursor:pointer;margin-top:10px}
+.expand:hover{background:#fff;color:var(--ink)}
+
+/* ---- popover, modal, tooltip ------------------------------------------------------------- */
+.pop{position:fixed;z-index:60;border-radius:var(--r-card);padding:16px 18px;max-width:430px;
+  font-size:14px;background:rgba(255,255,255,.94);
+  -webkit-backdrop-filter:blur(30px) saturate(1.8);backdrop-filter:blur(30px) saturate(1.8);
+  border:1px solid var(--glass-edge);box-shadow:var(--shadow-pop)}
+.pop .pt{font-weight:650;margin-bottom:2px}
+.pop .pv{font-size:26px;font-weight:620;letter-spacing:-.02em;margin-bottom:6px}
+.pop dt{font-size:12px;color:var(--ink-3);font-weight:600;margin-top:11px}
+.pop dd{margin:2px 0 0;color:var(--ink-2);line-height:1.5}
+.pop .lock{margin-top:14px;padding-top:11px;border-top:1px solid var(--hair-2);
   font-size:12.5px;color:var(--ink-3)}
-.loading{padding:70px 20px;text-align:center;color:var(--ink-3)}
-@media (max-width:860px){
-  .heroes{grid-template-columns:repeat(2,1fr)}
-  .askrow{grid-template-columns:1fr;gap:14px}
-  h1{font-size:25px}
+.scrim{position:fixed;inset:0;background:rgba(18,28,45,.34);
+  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+  display:flex;align-items:center;justify-content:center;z-index:50;padding:22px;
+  animation:fade .14s ease both}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.modal{background:rgba(255,255,255,.97);border:1px solid var(--glass-edge);
+  border-radius:var(--r-stage);max-width:600px;width:100%;padding:24px 26px;max-height:86vh;
+  overflow:auto;box-shadow:var(--shadow-pop)}
+.modal h3{margin:0 0 6px;font-size:19px;font-weight:620}
+.modal label{display:block;font-size:13px;font-weight:600;color:var(--ink-2);margin:16px 0 6px}
+.modal input,.modal textarea{width:100%;font:15px var(--sans);padding:10px 12px;
+  border:1px solid var(--hair);border-radius:var(--r-control);background:rgba(255,255,255,.8);color:var(--ink)}
+.modal textarea{min-height:78px;resize:vertical}
+.picks{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.picks button{font-size:13px;padding:6px 13px;border:1px solid var(--hair);border-radius:99px;
+  background:rgba(255,255,255,.7);cursor:pointer;color:var(--ink-2)}
+.picks button:hover{background:#fff;color:var(--ink)}
+.confirm{background:rgba(18,22,28,.045);border-radius:var(--r-control);padding:13px 15px;margin:16px 0;
+  font:12.5px/1.8 var(--mono);color:var(--ink-2);white-space:pre-wrap}
+.err{background:var(--abandoned-soft);border:1px solid rgba(204,91,69,.3);color:#9b3d2a;
+  border-radius:var(--r-control);padding:11px 14px;margin-top:13px;font-size:14px}
+.raw{font:12.5px/1.7 var(--mono);color:var(--ink-2);background:rgba(18,22,28,.045);
+  border-radius:var(--r-control);padding:13px 15px;white-space:pre-wrap;overflow-x:auto}
+.spec{font:12.5px/1.8 var(--mono);background:#12161C;color:#e2e8f4;border-radius:var(--r-control);
+  padding:14px 16px;overflow-x:auto;white-space:pre;margin-top:10px}
+#tip{position:fixed;z-index:70;max-width:290px;background:#12161C;color:#f2f5f9;font-size:12.5px;
+  line-height:1.45;padding:9px 12px;border-radius:10px;box-shadow:var(--shadow-pop);
+  pointer-events:none;opacity:0;transform:translateY(3px);transition:opacity .1s,transform .1s}
+#tip.on{opacity:1;transform:none}
+
+.empty{color:var(--ink-3);font-size:15px;max-width:56ch}
+.loading{padding:70px 26px;color:var(--ink-3)}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* Below this width the two-pane console stops being a console and becomes an ordinary
+   scrolling page: the panes stack, nothing clips, and the stage sizes to its content. */
+@media (max-width:900px){
+  html,body{height:auto;overflow:visible}
+  body{display:block}
+  .room{grid-template-columns:1fr;padding:0 12px 14px;min-height:0}
+  .ledger,.stage{min-height:0;max-height:none;overflow:visible}
+  .stage{display:block}
+  .slide{overflow:visible;min-height:0;padding:18px 16px 4px}
+  .slide.mid{display:block}
+  .progress{padding:14px 16px 0}
+  .progress button span{display:none}
+  .progress button[aria-current="true"] span{display:block}
+  .foot{padding:12px 16px 18px}
+  .headline{font-size:26px;max-width:none}
+  .lede,p.body{max-width:none}
+  .bar{padding:10px 14px;flex-wrap:wrap}
+  .eff .val{font-size:18px}
 }
 </style>
 </head>
 <body>
-<div class="sysbar"><div class="in" id="sysbar"></div></div>
-<div class="wrap" id="app"><div class="loading">Reading loop-report.json&hellip;</div></div>
+<header class="bar" id="bar"></header>
+<main class="room">
+  <aside class="ledger glass" id="ledger"><div class="loading">Reading the report…</div></aside>
+  <section class="stage glass" id="stage"></section>
+</main>
+<div id="tip"></div>
 <div id="overlay"></div>
 <script>
-/* Loop Desk - one screen, one decision.
- *
- * Everything on this page is rendered from loop-report.json. There is not a single day number,
- * tenant name, cohort key, metric name or count written into this file, because the sealed run
- * moves all of them. If the report says something different, the screen says something different.
- */
+/* Loop Desk. Everything on this page comes out of loop-report.json — no day, tenant,
+ * cohort or metric name is written into this file, because the sealed run moves all of
+ * them. If the report says something different, the screen says something different. */
 'use strict';
 
-var R = null, IDX = null, cur = 0;
-var $ = function (s, r) { return (r || document).querySelector(s); };
-var el = function (t, c, x) { var e = document.createElement(t); if (c) e.className = c;
-  if (x != null) e.textContent = x; return e; };
-var esc = function (s) { var d = document.createElement('div'); d.textContent = s == null ? '' : s;
-  return d.innerHTML; };
+var R=null, IDX=null, DECK=null;
+var $=function(s,r){return (r||document).querySelector(s);};
+var el=function(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e;};
+var esc=function(s){var d=document.createElement('div');d.textContent=s==null?'':s;return d.innerHTML;};
+var REDUCED=window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches;
 
 /* ---------- formatting -------------------------------------------------------------------- */
-function fmtInt(n) { return n == null ? '--' : Number(n).toLocaleString('en-GB'); }
-function fmtPct(v, dp) { return v == null ? '--' : (v * 100).toFixed(dp == null ? 1 : dp) + '%'; }
-function fmtUsd(v) {
-  if (v == null) return '--';
-  v = Number(v);
-  return '$' + (v >= 100 ? Math.round(v).toLocaleString('en-GB') : v.toFixed(2));
+function fmtInt(n){return n==null?null:Number(n).toLocaleString('en-GB');}
+function fmtPct(v,dp){return v==null?null:(v*100).toFixed(dp==null?1:dp)+'%';}
+function fmtUsd(v){if(v==null)return null;v=Number(v);return '$'+(v>=100?Math.round(v).toLocaleString('en-GB'):v.toFixed(2));}
+function sentence(s){s=String(s||'').trim();return s?s[0].toUpperCase()+s.slice(1):'';}
+function fmtNum(v,dp){
+  if(v==null)return null;
+  if(Math.abs(v)>=1000)return Math.round(v).toLocaleString('en-GB');
+  return String(Number(v).toFixed(dp==null?2:dp)).replace(/\.?0+$/,'')||'0';
 }
-/* Coverage below 1.0 means the figure describes part of the traffic, so trailing decimals are
- * false precision. Round to what the coverage can actually support. */
-function sigFor(coverage) { return (coverage != null && coverage < 0.95) ? 2 : 4; }
 
 /* ---------- indexing ---------------------------------------------------------------------- */
-function buildIndex(rep) {
-  var byFinding = {}, byDiag = {}, byPres = {}, presById = {}, diagById = {};
-  (rep.diagnoses || []).forEach(function (d) { byFinding[d.finding_id] = d; diagById[d.id] = d; });
-  (rep.prescriptions || []).forEach(function (p) { byDiag[p.diagnosis_id] = p; presById[p.id] = p; });
-  (rep.verifications || []).forEach(function (v) {
-    (byPres[v.prescription_id] = byPres[v.prescription_id] || []).push(v);
-  });
+function buildIndex(rep){
+  var byFinding={},byDiag={},byPres={},presById={},findingById={};
+  (rep.diagnoses||[]).forEach(function(d){byFinding[d.finding_id]=d;});
+  (rep.prescriptions||[]).forEach(function(p){byDiag[p.diagnosis_id]=p;presById[p.id]=p;});
+  (rep.verifications||[]).forEach(function(v){(byPres[v.prescription_id]=byPres[v.prescription_id]||[]).push(v);});
+  (rep.findings||[]).forEach(function(f){findingById[f.id]=f;});
 
-  /* Per-tenant coverage, read out of metrics[]. Never blended: a single figure across tenants
-   * describes neither deployment, and the report states them separately for that reason. */
-  var cov = {};
-  (rep.metrics || []).forEach(function (m) {
-    var c = m.coverage || {};
-    if (c.value == null) return;
-    (rep.findings || []).forEach(function (f) {
-      var slug = String(f.tenant || '').replace(/\W+/g, '_');
-      if (slug && m.id && m.id.indexOf(slug) >= 0 && cov[f.tenant] == null) {
-        cov[f.tenant] = { value: c.value, basis: c.basis, excluded: c.excluded || [] };
-      }
+  /* Per-tenant coverage for step-grain numbers. Metric ids carry the tenant slug, but the
+     sealed run may name tenants differently, so fall back to any sub-1.0 coverage rather
+     than claiming full coverage we cannot support. */
+  var cov={};
+  (rep.findings||[]).forEach(function(f){
+    if(cov[f.tenant]!=null)return;
+    var slug=String(f.tenant||'').replace(/\W+/g,'_'),hit=null,any=null;
+    (rep.metrics||[]).forEach(function(m){
+      var c=m.coverage||{};
+      if(c.value==null)return;
+      if(slug&&m.id&&m.id.indexOf(slug)>=0&&hit==null)hit={value:c.value,basis:c.basis,excluded:c.excluded||[]};
+      if(c.value<1&&any==null)any={value:c.value,basis:c.basis,excluded:c.excluded||[]};
     });
+    if(hit||any)cov[f.tenant]=hit||any;
   });
-  var cal = null;
-  (rep.metrics || []).forEach(function (m) { if (m.calibration && cal == null) cal = m.calibration; });
+  var cal=null;
+  (rep.metrics||[]).forEach(function(m){if(m.calibration&&cal==null)cal=m.calibration;});
 
-  return { byFinding: byFinding, byDiag: byDiag, byPres: byPres, presById: presById,
-           diagById: diagById, cov: cov, cal: cal,
-           regs: (rep.findings || []).filter(function (f) { return f.is_regression; }),
-           dis: (rep.findings || []).filter(function (f) { return !f.is_regression; }) };
+  var regs=(rep.findings||[]).filter(function(f){return f.is_regression;});
+  regs.sort(function(a,b){return (a.rank||99)-(b.rank||99);});
+  return {byFinding:byFinding,byDiag:byDiag,byPres:byPres,presById:presById,
+    findingById:findingById,cov:cov,cal:cal,regs:regs,
+    dis:(rep.findings||[]).filter(function(f){return !f.is_regression;})};
 }
+function prescriptionFor(f){var d=IDX.byFinding[f.id];return d?IDX.byDiag[d.id]||null:null;}
+function decided(p){return !!(p&&p.approval&&p.approval.verdict);}
 
-/* Resolve the honesty envelope for one number on one finding.
- *
- * Coverage is looked up for THIS series, not borrowed from a neighbouring one. The pipeline
- * measures it per tenant: by full series name for session fields (s.cost_usd, s.quality_score@v1)
- * and by step type for step series (tool_call, kb_lookup). Falling back to a tenant-wide figure
- * would put the tool_call hole's 72% next to knowledge-base numbers that actually cover 100%.
- */
-function envelope(f, meta) {
-  meta = meta || {};
-  var name = meta.name || '';
-  var measured = (R.coverage_measured || {})[f.tenant] || {};
-  var cov = measured[name];
-  if (cov == null && name.indexOf('.') > 0 && !/^s\./.test(name)) cov = measured[name.split('.')[0]];
-  var out = { fidelity: meta.fidelity || 'derived', definition: meta.definition || '',
-              plain: meta.plain || '' };
-  var tenantCov = IDX.cov[f.tenant];
-  if (cov != null) {
-    out.coverage = cov;
-    out.coverageBasis = cov >= 1
-      ? 'Measured: every conversation on this tenant can produce this number. Nothing is excluded.'
-      : 'Measured: the share of this tenant\u2019s conversations that can produce this number at '
-        + 'all. The rest cannot \u2014 that is not a sample, it is a structural blind spot.';
-    out.excluded = cov < 1 && tenantCov ? (tenantCov.excluded || []) : [];
-  } else if (meta.basis === 'step') {
-    out.coverage = tenantCov ? tenantCov.value : null;
-    out.coverageBasis = tenantCov ? tenantCov.basis
-      : 'Coverage for this series is not stated in the report.';
-    out.excluded = tenantCov ? tenantCov.excluded : [];
-  } else {
-    out.coverage = 1.0;
-    out.coverageBasis = 'Every conversation can produce this number; nothing is excluded.';
-    out.excluded = [];
+/* ---------- the definition popover -------------------------------------------------------- */
+/* Every figure on this page opens one of these. The number never appears without the
+   three things that make it honest: where it came from, what share of traffic can even
+   produce it, and how it was computed. */
+function num(text,info,cls){
+  var b=el('button','num'+(cls?' '+cls:''),text);
+  b.type='button';b.setAttribute('aria-haspopup','dialog');
+  b.addEventListener('click',function(e){e.stopPropagation();showPop(b,info);});
+  return b;
+}
+function meter(fraction,tone,info,label){
+  var b=el('button','meter');b.type='button';b.setAttribute('aria-haspopup','dialog');
+  var track=el('div','track'),fill=el('i',tone||'');
+  fill.style.width=(Math.max(0,Math.min(1,fraction||0))*100)+'%';
+  track.appendChild(fill);b.appendChild(track);
+  if(label)b.appendChild(el('span','cap',label));
+  b.addEventListener('click',function(e){e.stopPropagation();showPop(b,info);});
+  return b;
+}
+function showPop(anchor,info){
+  closePop();
+  var p=el('div','pop');p.setAttribute('role','dialog');
+  p.appendChild(el('div','pt',info.title||'This number'));
+  if(info.value!=null)p.appendChild(el('div','pv tnum',info.value));
+  var dl=el('dl');
+  function row(k,v){if(v==null||v==='')return;dl.appendChild(el('dt',null,k));dl.appendChild(el('dd',null,v));}
+  row('What it is',info.definition);
+  var FID={measured:'Measured. Counted directly in the logs, so we know it happened.',
+           derived:'Derived. Calculated from things we counted. No opinion involved.',
+           judged:'Judged. A model read the conversation and formed a view.'};
+  row('How we know it',FID[info.fidelity]||info.fidelity);
+  if(info.coverage!=null){
+    row('Coverage',fmtPct(info.coverage,0)+' of this deployment’s conversations can produce this number. '
+      +(info.coverageBasis||''));
+    if(info.coverage<1&&(info.excluded||[]).length)
+      row('Left out',info.excluded.join('; ')+'. That traffic cannot produce this number at all, '
+        +'so it is excluded rather than counted as zero.');
   }
-  out.calibration = out.fidelity === 'judged' ? IDX.cal : null;
+  if(info.calibration){
+    var ag=info.calibration.agreement;
+    row('Calibration', ag>=0.995
+      ? 'Suspiciously perfect ('+ag.toFixed(4)+'). Human reviewers disagree with each other, so '
+        +'agreement this high means something is wrong, not that the judge is excellent.'
+      : 'Agrees with human reviewers '+fmtPct(ag,0)+' of the time, across '+info.calibration.n
+        +' labelled conversations'+(info.calibration.judge_version?' on judge '+info.calibration.judge_version:'')
+        +'. Human labellers disagree with each other about 7.5% of the time, so 100% would be a bug.');
+  }else if(info.fidelity==='judged'){
+    row('Calibration','Not published. No human labels exist for this question in the kit, so no agreement is claimed.');
+  }
+  row('How it was computed',info.derivation);
+  p.appendChild(dl);
+  p.appendChild(el('div','lock','Definition frozen. This system proposes changes to the agent, never to the yardstick.'));
+  document.body.appendChild(p);
+  var r=anchor.getBoundingClientRect();
+  var top=r.bottom+8,left=Math.min(r.left,window.innerWidth-p.offsetWidth-14);
+  if(top+p.offsetHeight>window.innerHeight)top=Math.max(8,r.top-p.offsetHeight-8);
+  p.style.top=top+'px';p.style.left=Math.max(8,left)+'px';
+  setTimeout(function(){document.addEventListener('click',closePop,{once:true});},0);
+}
+function closePop(){var p=$('.pop');if(p)p.remove();}
+
+/* ---------- honesty envelope for one series ----------------------------------------------- */
+function envelope(f,meta){
+  meta=meta||{};
+  var tenantCov=IDX.cov[f.tenant];
+  var out={fidelity:meta.fidelity||'derived',definition:meta.definition||''};
+  if(meta.basis==='step'&&tenantCov){
+    out.coverage=tenantCov.value;out.coverageBasis=tenantCov.basis;out.excluded=tenantCov.excluded||[];
+  }else{
+    out.coverage=1.0;
+    out.coverageBasis='Every conversation can produce this number; nothing is excluded.';
+    out.excluded=[];
+  }
+  out.calibration=out.fidelity==='judged'?IDX.cal:null;
   return out;
 }
 
-/* ---------- the numeral popover ----------------------------------------------------------- */
-/* One interaction, applied to every numeral on the page. This is the literal rubric clause:
- * "does every number carry its definition". */
-function num(text, info, cls) {
-  var b = el('button', 'n' + (cls ? ' ' + cls : ''), text);
-  b.type = 'button';
-  b.setAttribute('aria-haspopup', 'dialog');
-  b.addEventListener('click', function (e) { e.stopPropagation(); showPop(b, info); });
-  return b;
+/* ---------- series metadata (for evidence lines the report did not annotate) --------------- */
+var SESSION_META={
+  's.resolved':['Resolution rate','measured','rate','Share of conversations that ended resolved.'],
+  's.milestones_complete':['Journey completion','measured','rate','Share of conversations that reached every milestone their journey defines.'],
+  's.handoff_unplanned':['Unplanned handoffs','measured','rate','Share of conversations handed to a person the journey never intended to involve.'],
+  's.abandoned':['Abandonment','measured','rate','Share of conversations the customer left without resolving.'],
+  's.turns':['Turns per conversation','measured','count','Back-and-forth exchanges before the conversation ended.'],
+  's.duration_s':['Conversation length','measured','count','Seconds from first to last turn.'],
+  's.cost_usd':['Cost per conversation','measured','usd','Model spend per conversation, summed over its model calls.'],
+  's.tool_error_any':['Conversations hitting a tool error','derived','rate','Share of conversations with at least one tool call that did not return ok. Declared failures only: a tool returning success with an empty body counts as a success here.'],
+  's.guardrail_any':['Conversations hitting a guardrail','measured','rate','Share of conversations where a guardrail fired.']
+};
+function guessMeta(series){
+  if(SESSION_META[series]){
+    var x=SESSION_META[series];
+    return {plain:x[0],fidelity:x[1],unit:x[2],definition:x[3],basis:series==='s.cost_usd'?'step':'session'};
+  }
+  if(series.indexOf('s.quality_score')===0)
+    return {plain:'Judged quality',fidelity:'judged',unit:'score',basis:'session',
+      definition:'A model’s 1-5 score for the conversation, comparable only within one rubric version.'};
+  if(series.indexOf('share:')===0)
+    return {plain:'Share of traffic by '+series.split(':')[1],fidelity:'derived',unit:'rate',basis:'session',
+      definition:'What proportion of traffic each value accounts for. A change here moves every total without anything getting better or worse.'};
+  var NOUN={tool_call:'tool call',kb_lookup:'knowledge-base lookup',llm_call:'model call',guardrail:'guardrail',handoff:'handoff',turn:'turn'};
+  var SUF={fail:['failure rate','measured','rate'],empty:['empty-response rate','derived','rate'],
+    miss:['miss rate','measured','rate'],retry:['retry rate','measured','rate'],
+    duration_ms:['response time','measured','ms'],timeout:['timeout rate','measured','rate'],
+    blocked:['blocked rate','measured','rate'],top_score:['best match score','measured','score'],
+    tokens:['tokens used','measured','count']};
+  var parts=series.split('.');
+  if(parts.length===2&&SUF[parts[1]]){
+    var n=NOUN[parts[0]]||parts[0].replace(/_/g,' '),t=SUF[parts[1]];
+    return {plain:n.charAt(0).toUpperCase()+n.slice(1)+' '+t[0],fidelity:t[1],unit:t[2],basis:'step',
+      definition:'Measured on '+n+' steps in the agent’s execution log.'};
+  }
+  return {plain:series.replace(/^s\./,'').replace(/[_.]/g,' '),fidelity:'derived',unit:'count',basis:'session',
+    definition:'Computed from the deployment’s own logs.'};
+}
+function metricMeta(metric){
+  var m=String(metric||'');
+  if(/resolution|contain/.test(m))return {plain:'Resolution rate',unit:'rate',better:'high'};
+  if(/turn/.test(m))return {plain:'Turns to resolve',unit:'count',better:'low'};
+  if(/quality/.test(m))return {plain:'Judged quality',unit:'score',better:'high'};
+  if(/cost|spend/.test(m))return {plain:'Cost per conversation',unit:'usd',better:'low'};
+  var g=guessMeta(m);return {plain:g.plain,unit:g.unit||'count',better:'high'};
+}
+function fmtBy(unit,v){
+  if(v==null)return null;
+  if(unit==='rate')return fmtPct(v,0);
+  if(unit==='usd')return fmtUsd(v);
+  if(unit==='ms')return Math.round(v).toLocaleString('en-GB')+' ms';
+  return fmtNum(v,2);
 }
 
-function showPop(anchor, info) {
-  closePop();
-  var p = el('div', 'pop');
-  p.setAttribute('role', 'dialog');
-  p.appendChild(el('div', 't', info.title || 'This number'));
-  var dl = el('dl');
-  function row(k, v) {
-    if (v == null || v === '') return;
-    dl.appendChild(el('dt', null, k));
-    dl.appendChild(el('dd', null, v));
-  }
-  row('What it is', info.definition);
-  var FID = { measured: 'Measured - counted directly in the logs. We know this happened.',
-              derived: 'Derived - calculated from things we counted. No opinion involved.',
-              judged: 'Judged - a model read the conversation and formed an opinion.' };
-  row('How we know it', FID[info.fidelity] || info.fidelity);
-  if (info.coverage != null) {
-    row('Coverage', fmtPct(info.coverage, 0) + ' of this deployment’s conversations. '
-        + (info.coverageBasis || ''));
-    if (info.coverage < 1 && (info.excluded || []).length) {
-      row('Excluded', info.excluded.join('; ')
-          + ' — this is not a sample, it is a structural blind spot: that traffic cannot '
-          + 'produce this number at all.');
-    }
-  }
-  if (info.calibration) {
-    var ag = info.calibration.agreement;
-    if (ag >= 0.995) {
-      row('Calibration', '⚠ Suspiciously perfect (' + ag.toFixed(4) + ') — investigate. '
-          + 'Human reviewers disagree with each other, so perfect agreement means something is '
-          + 'wrong, not that the judge is excellent.');
-    } else {
-      row('Calibration', 'Agrees with human reviewers ' + fmtPct(ag, 0) + ' of the time (n='
-          + info.calibration.n + (info.calibration.judge_version ? ', judge '
-          + info.calibration.judge_version : '') + '). '
-          + (info.calibration.basis || '')
-          + ' Human labellers disagree with each other about 7.5% of the time, so agreement of '
-          + '1.00 would be a bug, not a good judge.');
-    }
-  } else if (info.fidelity === 'judged') {
-    row('Calibration', 'Not published. No human labels exist for this question in the kit, so '
-        + 'agreement cannot be computed and none is claimed.');
-  } else {
-    row('Calibration', 'Not applicable — this is not a judged number.');
-  }
-  row('How it was computed', info.derivation);
-  row('Rounding', info.rounding);
-  p.appendChild(dl);
-  var lk = el('div', 'lock', '🔒 Definition frozen — v1.0. This system proposes '
-      + 'changes to the agent, never to the yardstick.');
-  p.appendChild(lk);
-
-  document.body.appendChild(p);
-  var r = anchor.getBoundingClientRect();
-  var top = r.bottom + window.scrollY + 7;
-  var left = Math.min(r.left + window.scrollX, window.scrollX + window.innerWidth - p.offsetWidth - 16);
-  if (top + p.offsetHeight > window.scrollY + window.innerHeight) {
-    top = Math.max(window.scrollY + 8, r.top + window.scrollY - p.offsetHeight - 7);
-  }
-  p.style.top = top + 'px';
-  p.style.left = Math.max(8, left) + 'px';
-  setTimeout(function () { document.addEventListener('click', closePop, { once: true }); }, 0);
-}
-function closePop() { var p = $('.pop'); if (p) p.remove(); }
-document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closePop(); closeModal(); } });
-
-/* ---------- evidence-line parser ---------------------------------------------------------- */
-/* The scanner emits evidence as prose in a stable shape. Parsing it back into a value, a
- * baseline and a direction is what lets the screen draw a comparison instead of printing a log
- * line at an operator. Anything that does not match is shown as-is, never dropped. */
-var EV_RE = /^(\S+) on (.+?), days (\d+)-(\d+): ([\d.]+) -> ([\d.]+) \(([+-]?[\d.]+)%, z=([\d.]+)(?:, baseline: (.+?))?\)\s*$/;
-function parseEvidence(s) {
-  var m = EV_RE.exec(s);
-  if (!m) return { raw: s };
-  return { series: m[1], where: m[2], from_day: +m[3], to_day: +m[4],
-           base: parseFloat(m[5]), obs: parseFloat(m[6]), pct: parseFloat(m[7]),
-           z: parseFloat(m[8]), basis: m[9] || null, raw: s };
+var EV_RE=/^(\S+) on (.+?), days (\d+)-(\d+): ([\d.]+) -> ([\d.]+) \(([+-]?[\d.]+)%, z=([\d.]+)(?:, baseline: (.+?))?\)\s*$/;
+function parseEvidence(s){
+  var m=EV_RE.exec(s);
+  if(!m)return {raw:s};
+  return {series:m[1],where:m[2],from_day:+m[3],to_day:+m[4],base:parseFloat(m[5]),obs:parseFloat(m[6]),
+    pct:parseFloat(m[7]),z:parseFloat(m[8]),raw:s};
 }
 
-/* ---------- system bar -------------------------------------------------------------------- */
-function renderSysbar() {
-  var bar = $('#sysbar');
-  bar.innerHTML = '';
-  var f = IDX.regs[cur];
-  bar.appendChild(el('b', null, 'LOOP DESK'));
-  if (f) bar.appendChild(el('span', null, f.tenant));
-  bar.appendChild(el('span', null, 'corpus ' + (R.corpus || '?')));
-  var decided = (R.prescriptions || []).filter(function (p) {
-    return p.approval && p.approval.verdict; }).length;
-  bar.appendChild(el('span', null, IDX.regs.length + ' to decide · ' + IDX.dis.length
-      + ' dismissed · ' + (R.gaps || []).length + ' refused · ' + decided + ' signed off'));
-  if (R.report_build) {
-    var c = el('code', null, 'build ' + String(R.report_build).replace('sha256:', '').slice(0, 10));
-    c.title = R.report_build;
+/* ---------- fallbacks, for a report built before narration existed ------------------------- */
+function titleOf(f){
+  if(f.title_plain)return f.title_plain;
+  return f.is_regression?'Something went wrong in this slice of traffic.'
+    :'This looked like a problem and is not one.';
+}
+function whereOf(f){return f.where_plain||f.tenant||'this deployment';}
+
+/* ---------- the ledger -------------------------------------------------------------------- */
+function renderBar(){
+  var bar=$('#bar');bar.innerHTML='';
+  var mark=el('div','mark');mark.appendChild(el('span','ring'));mark.appendChild(el('span',null,'Loop Desk'));
+  bar.appendChild(mark);
+  bar.appendChild(el('span','quiet','corpus '+(R.corpus||'unnamed')));
+  var left=IDX.regs.filter(function(f){return !decided(prescriptionFor(f));}).length;
+  bar.appendChild(el('span','quiet',left?(left+' still to decide'):'everything decided'));
+  bar.appendChild(el('span','sp'));
+  if(R.report_build){
+    var c=el('code',null,'build '+String(R.report_build).replace('sha256:','').slice(0,8));
+    bindTip(c,'Decisions are bound to this exact build of the evidence. If the report is rebuilt, a decision made against the old one is refused rather than quietly reattached.');
     bar.appendChild(c);
   }
-  bar.appendChild(el('span', 'sp'));
-  var nav = el('div', 'nav');
-  var prev = el('button', null, '‹ prev'), next = el('button', null, 'next ›');
-  prev.type = next.type = 'button';
-  prev.disabled = cur <= 0;
-  next.disabled = cur >= IDX.regs.length - 1;
-  prev.onclick = function () { cur--; render(); window.scrollTo(0, 0); };
-  next.onclick = function () { cur++; render(); window.scrollTo(0, 0); };
-  nav.appendChild(prev);
-  nav.appendChild(el('span', null, (IDX.regs.length ? cur + 1 : 0) + ' of ' + IDX.regs.length));
-  nav.appendChild(next);
-  bar.appendChild(nav);
+  document.body.setAttribute('data-state',left?'pending':'clear');
 }
 
-/* ---------- the finding ------------------------------------------------------------------- */
-function renderFinding(f) {
-  var s = el('section');
-  var d = IDX.byFinding[f.id] || {};
-  var p = IDX.byDiag[d.id] || null;
-  var imp = f.impact || {};
-  var approved = p && p.approval && p.approval.verdict;
-
-  var railCls = approved ? 'done' : (/^Still running/i.test(f.status_plain || '') ? 'live' : 'ended');
-  var icon = approved ? '✓' : (railCls === 'live' ? '●' : '◑');
-  s.appendChild(el('div', 'rail ' + railCls, icon + '  ' + (f.status_plain || '')));
-
-  s.appendChild(el('h1', null, f.title_plain || fallbackTitle(f, d)));
-  var scope = f.tenant + (f.cohort_label ? ' · ' + f.cohort_label : '');
-  if (f.scope_plain) scope += ' · ' + f.scope_plain;
-  s.appendChild(el('div', 'scope', scope));
-
-  /* Exactly four hero numbers. Four can be absorbed at a glance; seven cannot. */
-  var heroes = el('div', 'heroes');
-  function hero(valNode, label) {
-    var h = el('div', 'hero'), v = el('div', 'v');
-    v.appendChild(valNode);
-    h.appendChild(v);
-    h.appendChild(el('div', 'l', label));
-    heroes.appendChild(h);
-  }
-  var covT = IDX.cov[f.tenant];
-  hero(num(fmtInt(imp.conversations_affected), {
-    title: 'Conversations affected', definition: 'Conversations in this cohort during the window.',
-    fidelity: 'measured', coverage: 1.0,
-    coverageBasis: 'Every session is counted; nothing is excluded from this one.',
-    derivation: imp.derivation }), 'conversations affected');
-
-  hero(num(fmtPct(imp.share_of_traffic, 1), {
-    title: 'Share of traffic', definition: 'This cohort as a share of the tenant’s '
-      + 'conversations in the same window.',
-    fidelity: 'derived', coverage: 1.0,
-    coverageBasis: 'Both numerator and denominator are counted on every session.',
-    derivation: imp.derivation }), 'of ' + f.tenant + ' traffic');
-
-  var dn = imp.downstream || {};
-  if (imp.impact_type === 'spend_and_time') {
-    hero(num(fmtUsd(imp.cost_usd), {
-      title: 'Spend on these conversations', definition: 'Model spend summed over the cohort '
-        + 'in the window. Only agents that emit llm_call steps record cost at all.',
-      fidelity: 'measured', coverage: covT ? covT.value : null,
-      coverageBasis: covT ? covT.basis : '', excluded: covT ? covT.excluded : [],
-      derivation: imp.derivation,
-      rounding: 'Shown to the precision its coverage supports.' }), 'spent on them');
-  } else {
-    hero(num(fmtInt(dn.would_have_resolved_at_baseline), {
-      title: 'Conversations that should have resolved', definition: 'Conversations that would have '
-        + 'resolved at the baseline rate and did not. Baseline × conversations, minus those '
-        + 'that actually resolved.',
-      fidelity: 'derived', coverage: 1.0,
-      coverageBasis: 'Resolution is recorded on every session.',
-      derivation: imp.derivation,
-      rounding: 'A count derived from two rates, so it is approximate; the derivation shows both.'
-    }), 'did not resolve that should have');
-  }
-
-  hero(num(fmtInt(imp.days_running) + ' days', {
-    title: 'Days running', definition: 'Days from onset to the last day the fault was observed. '
-      + 'The scan window opens two days earlier so the onset itself is inside it.',
-    fidelity: 'derived', coverage: 1.0,
-    coverageBasis: 'Derived from the day index on every session.',
-    derivation: 'Window days ' + (f.window || {}).from_day + '-' + (f.window || {}).to_day
-      + '; duration measured from onset.' }), 'before anyone could act');
-  s.appendChild(heroes);
-
-  if (imp.outcome_note) {
-    var on = el('div', 'callout');
-    on.appendChild(el('div', 'k', '⚠  Read this before the numbers above'));
-    on.appendChild(el('p', null, imp.outcome_note));
-    s.appendChild(on);
-  }
-
-  if (f.if_nothing_changes) {
-    var c = el('div', 'callout');
-    c.appendChild(el('div', 'k', '⚑  If nobody acts'));
-    c.appendChild(el('p', null, f.if_nothing_changes));
-    s.appendChild(c);
-  }
-
-  var AUD = { agent_builder: 'Agent Builder', business_owner: 'Business Owner',
-              platform_owner: 'Platform Team' };
-  var row = el('div', 'askrow');
-  var left = el('div');
-  left.appendChild(el('div', 'k', 'Who has to act'));
-  (f.audience || []).forEach(function (a) {
-    var ch = el('span', 'chip', AUD[a] || a);
-    ch.style.marginRight = '6px';
-    ch.style.marginBottom = '6px';
-    left.appendChild(ch);
-  });
-  row.appendChild(left);
-  var right = el('div');
-  right.appendChild(el('div', 'k', 'Decision asked of you'));
-  right.appendChild(el('p', null, p && p.decision ? p.decision.asking_approval_for
-    : 'No fix is proposed for this finding. It is reported for a human to route.'));
-  row.appendChild(right);
-  s.appendChild(row);
-  return s;
-}
-
-/* A report emitted before the language layer carries no title_plain. Compose one from the cause
- * class and the cohort rather than showing a finding id to a person. */
-var FALLBACK_TITLE = {
-  'kb.gap': 'Customers asking about {c} are not getting a useful answer.',
-  'tool.contract_break': 'A tool behind {c} reports success while returning nothing.',
-  'tool.outage': 'A tool behind {c} is failing outright.',
-  'prompt.regression': 'Conversations in {c} got longer and more expensive without getting better.',
-  'model.change': 'A model change altered how {c} behaves.',
-  'routing.error': 'Conversations in {c} are being sent to the wrong place.',
-  'traffic_mix': 'The mix of questions changed - the totals moved, the service did not.',
-  'load': 'Traffic ran far above normal and the platform slowed down, then recovered.',
-  'judge_change': 'The quality-scoring rubric changed version - the scores moved, the agents did not.'
-};
-function fallbackCohort(f) {
-  var c = f.cohort || {}, k = Object.keys(c)[0];
-  if (!k) return 'all ' + f.tenant + ' traffic';
-  var v = String(c[k]);
-  if (k === 'intent') return v.replace(/_(info|enquiry|query)$/, '').replace(/_/g, ' ')
-    .replace(/\b\w/g, function (m) { return m.toUpperCase(); }) + ' enquiries';
-  if (k === 'tool' || k === 'tool_name') return 'the ' + v + ' tool';
-  if (k === 'agent_id') return 'the ' + v + ' agent';
-  return v.replace(/_/g, ' ');
-}
-function fallbackTitle(f, d) {
-  var t = FALLBACK_TITLE[(d || {}).cause_class];
-  var c = fallbackCohort(f);
-  if (t) return t.replace('{c}', c);
-  return f.is_regression ? 'Service quality dropped in ' + c + '.'
-                         : c.charAt(0).toUpperCase() + c.slice(1) + ' looked like a problem and is not one.';
-}
-
-/* ---------- WHAT WE MEASURED -------------------------------------------------------------- */
-function renderMeasured(f) {
-  var s = el('section');
-  s.appendChild(el('h2', null, 'What we measured'));
-  var rows = (f.evidence || []).map(parseEvidence);
-  var numeric = rows.filter(function (r) { return r.series; });
-  var notes = rows.filter(function (r) { return !r.series; });
-
-  if (!numeric.length && !notes.length) s.appendChild(el('p', 'dim', 'No evidence rows recorded.'));
-
-  /* One claim per row: name, value, bar, baseline, provenance. Never a table of twelve metrics. */
-  numeric.slice(0, 4).forEach(function (r, i) {
-    var meta = (i === 0 && f.metric_plain && f.metric_plain.name === r.series)
-      ? f.metric_plain : guessMeta(r.series);
-    var env = envelope(f, meta);
-    var d = el('div', 'ev');
-    var top = el('div', 'top');
-    top.appendChild(el('div', 'nm', meta.plain || r.series));
-    var dp = sigFor(env.coverage);
-    var shown = fmtMeasure(r.obs, meta, env.coverage),
-        baseShown = fmtMeasure(r.base, meta, env.coverage);
-    top.appendChild(num(shown, {
-      title: meta.plain || r.series, definition: meta.definition, fidelity: env.fidelity,
-      coverage: env.coverage, coverageBasis: env.coverageBasis, excluded: env.excluded,
-      calibration: env.calibration,
-      derivation: r.raw,
-      rounding: env.coverage != null && env.coverage < 0.95
-        ? 'Shown to ' + dp + ' decimal places because coverage is '
-          + fmtPct(env.coverage, 0) + ' — more would be false precision.'
-        : null }));
-    top.appendChild(el('span', 'dim small', 'vs ' + baseShown + ' baseline · '
-      + (r.pct > 0 ? '+' : '') + r.pct + '% · z=' + r.z));
-    d.appendChild(top);
-
-    var worse = meta.higher_is_better === true ? r.obs < r.base
-      : meta.higher_is_better === false ? r.obs > r.base : false;
-    var mx = Math.max(Math.abs(r.obs), Math.abs(r.base)) || 1;
-    var bar = el('div', 'bar' + (worse ? ' bad' : ''));
-    var fill = el('i');
-    fill.style.width = Math.min(100, Math.abs(r.obs) / mx * 100) + '%';
-    bar.appendChild(fill);
-    d.appendChild(bar);
-
-    var CH = { measured: '⬤ Measured', derived: '◐ Derived', judged: '◔ Judged' };
-    var prov = el('div', 'prov');
-    prov.appendChild(el('span', null, CH[env.fidelity] || env.fidelity));
-    prov.appendChild(el('span', null, '·'));
-    prov.appendChild(el('span', null, 'covers ' + fmtPct(env.coverage, 0) + ' of ' + f.tenant));
-    if (r.where) { prov.appendChild(el('span', null, '·')); prov.appendChild(el('span', null, r.where)); }
-    d.appendChild(prov);
-
-    if (i === 0 && f.baseline && f.baseline.justification) {
-      var b = el('div', 'base');
-      b.appendChild(el('strong', null, 'Baseline: '
-        + (f.baseline.type === 'peer_traffic' ? 'peer traffic. ' : 'its own history. ')));
-      b.appendChild(document.createTextNode(f.baseline.justification));
-      d.appendChild(b);
-    }
-    s.appendChild(d);
-  });
-
-  notes.forEach(function (r) { s.appendChild(el('p', 'small dim', '• ' + r.raw)); });
-
-  /* Disclosure reveals HOW we know, never WHAT we claim. */
-  var det = el('details');
-  det.appendChild(el('summary', null, 'Show the full working'));
-  if ((f.impact || {}).derivation) {
-    det.appendChild(el('div', 'k', 'Derivation'));
-    det.appendChild(el('div', 'raw', f.impact.derivation));
-  }
-  if (rows.length > 4) {
-    det.appendChild(el('div', 'k', 'Every series that moved'));
-    det.appendChild(el('div', 'raw', (f.evidence || []).join('\n')));
-  }
-  s.appendChild(det);
-
-  var refused = [];
-  (R.metrics || []).forEach(function (m) {
-    ((m.plan || {}).refused_breakdowns || []).forEach(function (x) {
-      if (refused.indexOf(x) < 0) refused.push(x);
+function rowIndicator(f){
+  var band=f.outcome_band;
+  if(band&&band.total){
+    var wrap=el('div','miniband');
+    (band.segments||[]).forEach(function(s){
+      var i=el('i');i.className=s.key;i.style.width=(s.count/band.total*100)+'%';wrap.appendChild(i);
     });
-  });
-  if (refused.length) {
-    var line = el('p', 'small dim');
-    line.style.marginTop = '12px';
-    line.appendChild(document.createTextNode('Breakdowns we refused rather than truncated: '
-      + refused.join('; ') + '.'));
-    s.appendChild(line);
-  }
-  return s;
-}
-
-function fmtNum(v, dp) {
-  if (v == null) return '--';
-  if (Math.abs(v) >= 1000) return Math.round(v).toLocaleString('en-GB');
-  var t = Number(v).toFixed(dp);
-  return t.replace(/\.?0+$/, '') || '0';
-}
-
-/* A rate reads as a percentage to a person and as a decimal to a machine. The operator gets the
- * percentage; the exact stored value is in the popover. Money, milliseconds, scores and counts
- * keep their own units - "0.25" is a match score, not 25% of anything. */
-function fmtMeasure(v, meta, coverage) {
-  if (v == null) return '--';
-  var u = (meta || {}).unit;
-  if (u === 'rate') return fmtPct(v, (coverage != null && coverage < 0.95) ? 1 : (Math.abs(v) < 0.1 ? 1 : 0));
-  if (u === 'usd') return fmtUsd(v);
-  if (u === 'ms') return Math.round(v).toLocaleString('en-GB') + ' ms';
-  return fmtNum(v, sigFor(coverage));
-}
-
-/* Fallback metadata for a series the report did not annotate. Mirrors nexus/language.py so the
- * screen degrades to a sentence rather than a raw key. */
-var SESSION_META = {
-  's.resolved': ['Resolution rate', 'measured', true, 'rate',
-    'Share of conversations that ended resolved.'],
-  's.milestones_complete': ['Journey completion rate', 'measured', true, 'rate',
-    'Share of conversations that reached every milestone their intent defines.'],
-  's.milestone_ratio': ['Journey progress', 'derived', true, 'rate',
-    'Average share of an intent\u2019s milestones reached before the conversation ended.'],
-  's.handoff_unplanned': ['Unplanned handoffs', 'measured', false, 'rate',
-    'Share of conversations handed to a human the journey never intended to involve.'],
-  's.abandoned': ['Abandonment rate', 'measured', false, 'rate',
-    'Share of conversations the customer left without resolving. How many gave up is measured; '
-    + 'why they gave up is not \u2014 see the refused questions.'],
-  's.turns': ['Exchanges per conversation', 'measured', false, 'count',
-    'Back-and-forth turns before the conversation ended.'],
-  's.duration_s': ['Conversation length', 'measured', false, 'count',
-    'Wall-clock seconds from first to last turn.'],
-  's.cost_usd': ['Cost per conversation', 'measured', false, 'usd',
-    'Model spend per conversation, summed over its llm_call steps.'],
-  's.tool_error_any': ['Conversations hitting a tool error', 'derived', false, 'rate',
-    'Share of conversations with at least one tool call that did not return ok. Declared '
-    + 'failures only \u2014 a tool returning 200 with an empty body counts as a success here.'],
-  's.guardrail_any': ['Conversations hitting a guardrail', 'measured', false, 'rate',
-    'Share of conversations where at least one guardrail step fired.']
-};
-
-function guessMeta(series) {
-  if (SESSION_META[series]) {
-    var x = SESSION_META[series];
-    return { name: series, plain: x[0], fidelity: x[1], higher_is_better: x[2], unit: x[3],
-             definition: x[4], basis: series === 's.cost_usd' ? 'step' : 'session' };
-  }
-  var NOUN = { tool_call: 'tool call', kb_lookup: 'knowledge-base lookup', llm_call: 'model call',
-               guardrail: 'guardrail', handoff: 'handoff', turn: 'turn' };
-  var SUF = { fail: ['failure rate', 'measured', false, 'rate'],
-              empty: ['empty-response rate', 'derived', false, 'rate'],
-              miss: ['miss rate', 'measured', false, 'rate'],
-              retry: ['retry rate', 'measured', false, 'rate'],
-              duration_ms: ['response time', 'measured', false, 'ms'],
-              timeout: ['timeout rate', 'measured', false, 'rate'],
-              blocked: ['blocked rate', 'measured', false, 'rate'],
-              top_score: ['best match score', 'measured', true, 'score'],
-              tokens: ['tokens used', 'measured', false, 'count'] };
-  if (series.indexOf('share:') === 0) {
-    return { name: series, plain: 'Share of traffic by ' + series.split(':')[1],
-             fidelity: 'derived', basis: 'session', higher_is_better: null, unit: 'rate',
-             definition: 'What proportion of traffic each value accounts for. A change here moves '
-               + 'every aggregate without anything getting better or worse.' };
-  }
-  if (series.indexOf('s.quality_score') === 0) {
-    return { name: series, plain: 'Judged quality', fidelity: 'judged', basis: 'session',
-             higher_is_better: true, unit: 'score',
-             definition: 'A model’s 1-5 score for the conversation, comparable only within '
-               + 'one rubric version.' };
-  }
-  var parts = series.split('.');
-  if (parts.length === 2 && SUF[parts[1]]) {
-    var n = NOUN[parts[0]] || parts[0].replace(/_/g, ' '), t = SUF[parts[1]];
-    return { plain: n.charAt(0).toUpperCase() + n.slice(1) + ' ' + t[0], fidelity: t[1],
-             basis: 'step', higher_is_better: t[2],
-             definition: 'Measured on ' + n + ' steps in the agent’s execution log.' };
-  }
-  return { name: series, plain: series.replace(/^s\./, '').replace(/[_.]/g, ' '),
-           fidelity: 'derived', basis: 'session', higher_is_better: null, unit: 'count',
-           definition: 'Computed from the deployment’s own logs.' };
-}
-
-/* ---------- WHY IT HAPPENED --------------------------------------------------------------- */
-function renderWhy(f) {
-  var d = IDX.byFinding[f.id];
-  if (!d) return null;
-  var s = el('section');
-  s.appendChild(el('h2', null, 'Why it happened'));
-  var att = d.attributed_change;
-  if (att) {
-    var line = el('p');
-    line.style.fontSize = '16px';
-    line.appendChild(el('strong', null, 'Day ' + att.day + ' · ' + att.kind + ' change'));
-    s.appendChild(line);
-    var detail = (d.evidence || []).filter(function (x) { return /attributed via/i.test(x); })[0];
-    if (detail) s.appendChild(el('p', 'small dim', detail));
-  } else {
-    s.appendChild(el('p', null, 'No configuration change lines up with this window.'));
-  }
-  if (d.attribution_confidence_plain) {
-    var tag = el('span', 'tag amber', '◐ ' + d.attribution_confidence_plain);
-    s.appendChild(tag);
-  }
-  if (d.attribution_plain) {
-    var ap = el('p', 'small dim');
-    ap.style.marginTop = '10px';
-    ap.style.maxWidth = '80ch';
-    ap.textContent = d.attribution_plain;
-    s.appendChild(ap);
-  }
-  var p = IDX.byDiag[d.id];
-  if (p && p.decision && p.decision.risk_if_diagnosis_wrong) {
-    var r = el('div', 'base');
-    r.style.marginTop = '14px';
-    r.appendChild(el('strong', null, 'If we are wrong: '));
-    r.appendChild(document.createTextNode(p.decision.risk_if_diagnosis_wrong));
-    s.appendChild(r);
-  }
-  var det = el('details');
-  det.appendChild(el('summary', null, 'Show what we ruled out'));
-  det.appendChild(el('div', 'raw', (d.evidence || []).join('\n')
-    + '\n\nConfidence recorded by the diagnoser: ' + (d.confidence != null ? d.confidence : 'n/a')
-    + '\nCause class: ' + d.cause_class));
-  s.appendChild(det);
-  return s;
-}
-
-/* ---------- WHAT WE PROPOSE + DID IT WORK + the gate -------------------------------------- */
-function renderPropose(f) {
-  var d = IDX.byFinding[f.id] || {};
-  var p = IDX.byDiag[d.id];
-  if (!p) return null;
-  var s = el('section');
-  s.appendChild(el('h2', null, 'What we propose'));
-  s.appendChild(el('p', null, p.description || ''));
-
-  var pd = p.predicted_delta || {};
-  if (pd.metric) {
-    var meta = p.predicted_delta_plain || guessMeta(pd.metric);
-    var env = envelope(f, meta);
-    var pr = el('p', 'small');
-    pr.appendChild(el('strong', null, 'Predicted: '));
-    pr.appendChild(document.createTextNode((meta.plain || pd.metric) + ' '));
-    pr.appendChild(num(fmtMeasure(pd.from, meta, env.coverage), {
-      title: 'Where it is now', definition: meta.definition, fidelity: env.fidelity,
-      coverage: env.coverage, coverageBasis: env.coverageBasis, derivation: 'Observed in the window.' }));
-    pr.appendChild(document.createTextNode(' → about '));
-    pr.appendChild(num(fmtMeasure(pd.to, meta, env.coverage), {
-      title: 'Where we predict it lands', definition: 'The baseline this cohort is measured '
-        + 'against. Predicting a return to baseline is what makes the claim falsifiable.',
-      fidelity: 'derived', coverage: env.coverage, coverageBasis: env.coverageBasis,
-      derivation: 'Baseline for this cohort; see the baseline justification above.' }));
-    s.appendChild(pr);
-  }
-
-  if (p.decision && p.decision.would_not_ship_if) {
-    var st = el('div', 'callout');
-    st.appendChild(el('div', 'k', '⛔  Pre-committed stop condition'));
-    st.appendChild(el('p', null, p.decision.would_not_ship_if));
-    s.appendChild(st);
-  }
-
-  /* DID IT WORK */
-  var vs = IDX.byPres[p.id] || [];
-  s.appendChild(el('h2', null, 'Did it work'));
-  if (!vs.length) {
-    var nv = el('p', 'dim');
-    nv.textContent = 'Not verified. This fix has not been put to the replay service, so there is '
-      + 'no before-and-after for it. A fix with no evidence behind it is a hope, and the screen '
-      + 'says so rather than implying otherwise.';
-    s.appendChild(nv);
-  }
-  vs.forEach(function (v) {
-    /* A fix that improved the cohort and broke the golden set is not a green result: the stop
-     * condition we pre-committed to has fired, so it reads as the blocked change it now is. */
-    var box = el('div', 'receipt ' + (v.stop_condition_triggered ? 'no'
-      : v.verdict === 'improved' ? 'ok'
-      : v.verdict === 'regressed' ? 'no' : 'df'));
-    var VI = { improved: '✓ Improved', no_effect: '— No effect',
-               regressed: '✗ Made it worse' };
-    var hd = el('div', 'hd');
-    hd.appendChild(document.createTextNode(VI[v.verdict] || v.verdict));
-    if (v.is_alternative) hd.appendChild(el('span', 'tag grey', 'alternative we tested'));
-    if (v.golden_set_pass === false) hd.appendChild(el('span', 'tag red', 'golden set regressed'));
-    if (v.golden_set_pass === true) hd.appendChild(el('span', 'tag green', 'golden set clean'));
-    box.appendChild(hd);
-    box.appendChild(el('p', 'small', v.plain || ''));
-    if (v.alternative_note) box.appendChild(el('p', 'small dim', v.alternative_note));
-    if (v.stop_condition_note) {
-      var sc = el('p', 'small');
-      sc.style.fontWeight = '600';
-      sc.style.color = 'var(--bad)';
-      sc.textContent = '⛔ ' + v.stop_condition_note;
-      box.appendChild(sc);
-    }
-    if (v.prediction_error_not_computed_because) {
-      box.appendChild(el('p', 'small dim', v.prediction_error_not_computed_because));
-    } else if (v.prediction_error != null) {
-      box.appendChild(el('p', 'small dim', 'Prediction error: ' + v.prediction_error
-        + ' (predicted minus observed, on the same metric).'));
-    }
-    box.appendChild(el('p', 'small dim', 'ⓘ ' + (v.caveat || '')
-      + '  Replay run ' + v.replay_run_id + '.'));
-    s.appendChild(box);
-  });
-
-  s.appendChild(renderGate(f, p));
-  return s;
-}
-
-/* ---------- the approval gate ------------------------------------------------------------- */
-/* Deliberately no keyboard shortcut. Approving a change to a production agent should cost a
- * considered click; "can you approve this by accident" should have a good answer. */
-var VERDICT_UI = {
-  accepted: { cls: 'ok', word: 'ACCEPTED', icon: '✓', tail: 'approved for shipping' },
-  rejected: { cls: 'no', word: 'REJECTED', icon: '✗', tail: 'not shipped — reason recorded' },
-  deferred: { cls: 'df', word: 'DEFERRED', icon: '⏸', tail: 'escalated — no change made' }
-};
-
-function renderGate(f, p) {
-  var wrap = el('div');
-  var a = p.approval;
-  if (a && a.verdict) {
-    var ui = VERDICT_UI[a.verdict] || VERDICT_UI.deferred;
-    var box = el('div', 'receipt ' + ui.cls);
-    var hd = el('div', 'hd');
-    hd.appendChild(document.createTextNode(ui.icon + ' ' + ui.word + ' · ' + ui.tail));
-    box.appendChild(hd);
-    box.appendChild(el('p', 'small', a.decided_by + ' · ' + a.at));
-    var why = el('p', 'small');
-    why.appendChild(el('strong', null, 'Reason: '));
-    why.appendChild(document.createTextNode(a.reason));
-    box.appendChild(why);
-    var hist = p.approval_history || [];
-    var bound = hist.length ? hist[hist.length - 1].report_build : null;
-    if (bound) {
-      box.appendChild(el('p', 'small dim', 'Recorded against report build ' + bound
-        + (bound === R.report_build ? ' — the evidence on this screen.'
-          : ' — WARNING: the report has been regenerated since.')));
-    }
-    if (hist.length > 1) {
-      var det = el('details');
-      det.appendChild(el('summary', null, 'Decision history (' + hist.length + ' entries, nothing overwritten)'));
-      det.appendChild(el('div', 'raw', hist.map(function (h, i) {
-        return (i + 1) + '. ' + h.verdict.toUpperCase() + ' · ' + h.decided_by + ' · '
-          + h.at + '\n   ' + h.reason;
-      }).join('\n\n')));
-      box.appendChild(det);
-    }
-    var acts = el('div', 'acts');
-    var ch = el('button', 'btn sm', 'change decision');
-    ch.type = 'button';
-    ch.onclick = function () { openDecision(f, p, null); };
-    acts.appendChild(ch);
-    var vw = el('button', 'btn sm', 'view the change in loop-report.json');
-    vw.type = 'button';
-    vw.onclick = function () { showWritten(p); };
-    acts.appendChild(vw);
-    box.appendChild(acts);
-    wrap.appendChild(box);
     return wrap;
   }
+  var share=(f.impact||{}).share_of_traffic;
+  if(share==null)return null;
+  var w=el('div','miniband');var i=el('i');i.style.width=Math.max(3,share*100)+'%';
+  i.style.background='var(--act)';w.appendChild(i);
+  var rest=el('i');rest.style.width=(100-share*100)+'%';rest.style.background='rgba(18,22,28,.10)';
+  w.appendChild(rest);return w;
+}
+var SEV_TONE={critical:'var(--abandoned)',high:'var(--handoff)',medium:'var(--act)',low:'var(--ink-3)'};
 
-  var acts = el('div', 'acts');
-  [['accepted', 'ACCEPT FIX', 'btn pri'], ['rejected', 'REJECT', 'btn warn'],
-   ['deferred', 'DEFER — need more information', 'btn']].forEach(function (x) {
-    var b = el('button', x[2], x[1]);
-    b.type = 'button';
-    b.onclick = function () { openDecision(f, p, x[0]); };
-    acts.appendChild(b);
-  });
-  wrap.appendChild(acts);
-  var note = el('p', 'small dim');
-  note.style.marginTop = '10px';
-  note.textContent = 'Whichever you choose is written into loop-report.json → prescriptions['
-    + p.id + '].approval, with your name, the time, the reason, and the build hash of the '
-    + 'evidence you are looking at. A rejection with a good reason is as complete an answer as '
-    + 'an approval.';
-  wrap.appendChild(note);
+function findingRow(f,current){
+  var p=prescriptionFor(f),done=decided(p);
+  var b=el('button','row'+(done?' settled':''));b.type='button';
+  b.setAttribute('aria-current',current?'true':'false');
+  var t=el('div','rt');
+  var dot=el('span','sev');dot.style.background=SEV_TONE[f.severity]||'var(--ink-3)';
+  if(f.severity)bindTip(dot,'Severity recorded as '+f.severity+'.');
+  t.appendChild(dot);
+  t.appendChild(el('span',null,titleOf(f)));
+  if(done)t.appendChild(el('span','tick','✓'));
+  b.appendChild(t);
+  b.appendChild(el('div','rw',whereOf(f)));
+  var ind=rowIndicator(f);if(ind)b.appendChild(ind);
+  b.onclick=function(){goFromList('f',f.id);};
+  return b;
+}
+function contextRow(label,note,count,seq,current){
+  var b=el('button','row');b.type='button';b.setAttribute('aria-current',current?'true':'false');
+  var t=el('div','rt');t.appendChild(el('span',null,label));
+  if(count!=null)t.appendChild(el('span','count',String(count)));
+  b.appendChild(t);
+  if(note)b.appendChild(el('div','rw',note));
+  b.onclick=function(){goFromList(seq,null);};
+  return b;
+}
+function renderLedger(){
+  var host=$('#ledger');host.innerHTML='';
+  if(R.summary_plain)host.appendChild(el('p','summary',R.summary_plain));
+
+  var open=IDX.regs.filter(function(f){return !decided(prescriptionFor(f));});
+  var settled=IDX.regs.filter(function(f){return decided(prescriptionFor(f));});
+
+  var g1=el('div','group');
+  g1.appendChild(el('h2',null,open.length?'Needs you':'Nothing left to decide'));
+  if(!IDX.regs.length){
+    g1.appendChild(el('p','empty','No regression was found on this run. That is a result in itself. What we examined and set aside is below.'));
+  }else if(!open.length){
+    g1.appendChild(el('p','empty','Every fix on this run has a recorded decision.'));
+  }
+  open.forEach(function(f){g1.appendChild(findingRow(f,DECK&&DECK.seq==='f'&&DECK.key===f.id));});
+  host.appendChild(g1);
+
+  if(settled.length){
+    var g2=el('div','group');
+    g2.appendChild(el('h2',null,'Decided'));
+    settled.forEach(function(f){g2.appendChild(findingRow(f,DECK&&DECK.seq==='f'&&DECK.key===f.id));});
+    host.appendChild(g2);
+  }
+
+  var g3=el('div','group ctx');
+  g3.appendChild(el('h2',null,'For context'));
+  g3.appendChild(contextRow('Looked like trouble, was not','examined and set aside, in writing',
+    IDX.dis.length,'dismissed',DECK&&DECK.seq==='dismissed'));
+  g3.appendChild(contextRow('Questions we refused','and the event that would answer them',
+    (R.gaps||[]).length,'gaps',DECK&&DECK.seq==='gaps'));
+  g3.appendChild(contextRow('How often we are right','the system grading its own predictions',
+    null,'hitrate',DECK&&DECK.seq==='hitrate'));
+  g3.appendChild(contextRow('What this system really does','real, templated, and not yet run',
+    null,'about',DECK&&DECK.seq==='about'));
+  host.appendChild(g3);
+}
+
+/* ========================================================================================== *
+ *  SLIDES
+ * ========================================================================================== */
+
+/* 1 — the problem, and only the problem. */
+function slideProblem(f){
+  var s=el('div');
+  s.appendChild(el('h1','headline',titleOf(f)));
+  if(f.what_happened)s.appendChild(el('p','lede',f.what_happened));
+  var scope=el('div','scope');
+  scope.appendChild(el('span',null,whereOf(f)));
+  if(f.status_short)scope.appendChild(el('span',null,f.status_short));
+  s.appendChild(scope);
+  return s;
+}
+
+/* 2 — what it did to people. */
+function slideImpact(f){
+  var imp=f.impact||{};
+  var s=el('div');
+  s.appendChild(el('h3','sec','What it did'));
+
+  var band=f.outcome_band;
+  if(band&&band.total){
+    var card=el('div','card');
+    var bar=el('div','band');
+    (band.segments||[]).forEach(function(seg){
+      var i=el('i');i.className=seg.key;
+      i.style.width=(seg.count/band.total*100)+'%';
+      bar.appendChild(i);
+    });
+    card.appendChild(bar);
+    var key=el('div','key');
+    (band.segments||[]).forEach(function(seg){
+      var sp=el('span');var sw=el('b');sw.style.background='var(--'+seg.key+')';
+      sp.appendChild(sw);
+      sp.appendChild(num(fmtInt(seg.count)+' '+seg.label,{
+        title:seg.label.charAt(0).toUpperCase()+seg.label.slice(1),value:fmtInt(seg.count),
+        definition:band.caption,fidelity:'measured',coverage:1.0,
+        coverageBasis:'How a conversation ended is recorded on every one of them.',
+        derivation:imp.derivation}));
+      key.appendChild(sp);
+    });
+    card.appendChild(key);
+    s.appendChild(card);
+  }
+
+  var effects=f.effect_plain||[];
+  if(effects.length){
+    var list=el('div','card');
+    effects.forEach(function(e){list.appendChild(effectRow(f,e));});
+    s.appendChild(list);
+  }else if(!band){
+    s.appendChild(el('p','empty','This finding records no impact block, so there is nothing to show here rather than a blank figure.'));
+  }
+
+  if((f.audience||[]).length){
+    var who=el('div','card quiet');
+    who.appendChild(el('h3','sec','Who has to act'));
+    var AUD={agent_builder:'The agent builder',business_owner:'The business owner',platform_owner:'The platform team'};
+    var chips=el('div','chips');
+    f.audience.forEach(function(a){chips.appendChild(el('span','chip',AUD[a]||a.replace(/_/g,' ')));});
+    who.appendChild(chips);
+    s.appendChild(who);
+  }
+  if(f.if_nothing_changes){
+    var flag=el('div','flag');
+    flag.appendChild(el('h3','sec','If nobody acts'));
+    flag.appendChild(el('p','body',f.if_nothing_changes));
+    s.appendChild(flag);
+  }
+  return s;
+}
+function effectRow(f,e){
+  var imp=f.impact||{},down=imp.downstream||{};
+  var row=el('div','eff');
+  row.appendChild(el('div','lab',e.headline));
+
+  var total=imp.conversations_affected;
+  var value=null,share=null,tone='';
+  if(e.key==='volume'){value=fmtInt(total);share=imp.share_of_traffic;}
+  else if(e.key==='lost'){var l=down.would_have_resolved_at_baseline!=null?down.would_have_resolved_at_baseline:down.lost_resolutions_vs_baseline;
+    value=fmtInt(l);share=total?l/total:null;tone='abandoned';}
+  else if(e.key==='handoffs'){value=fmtInt(down.unplanned_handoffs);share=total?down.unplanned_handoffs/total:null;tone='handoff';}
+  else if(e.key==='abandoned'){value=fmtInt(down.abandoned);share=total?down.abandoned/total:null;tone='abandoned';}
+  else if(e.key==='duration'){value=fmtInt(imp.days_running)+' days';}
+  else if(e.key==='cost'){var c=imp.cost_usd!=null?imp.cost_usd:down.avoidable_spend_usd;value=fmtUsd(c);}
+  else if(e.key==='metric_move'){
+    var mm=metricMeta(f.metric);
+    value=fmtBy(mm.unit,f.observed);
+    if(/turn/i.test(mm.plain)&&value!=null)value+=' turns';
+  }
+
+  var covT=IDX.cov[f.tenant];
+  var stepGrain=(e.key==='cost');
+  var info={title:e.headline,value:value,definition:e.detail,
+    fidelity:e.key==='volume'||e.key==='duration'?'derived':'measured',
+    coverage:stepGrain&&covT?covT.value:1.0,
+    coverageBasis:stepGrain&&covT?covT.basis:'Recorded on every conversation in this slice.',
+    excluded:stepGrain&&covT?covT.excluded:[],
+    derivation:imp.derivation};
+  row.appendChild(num(value||'not recorded',info,'val tnum'));
+
+  if(share!=null){
+    var sub=el('div','sub');
+    sub.appendChild(meter(share,tone,{
+      title:e.headline+', as a share',value:fmtPct(share,1),
+      definition:e.detail,fidelity:'derived',coverage:1.0,
+      coverageBasis:'Both the count and the total are taken from the same set of conversations.',
+      derivation:imp.derivation}));
+    sub.appendChild(el('span','cap',e.key==='volume'?'of the tenant’s traffic in these days':'of this slice'));
+    row.appendChild(sub);
+  }
+  return row;
+}
+
+/* 3 — why it happened. */
+function slideCause(f){
+  var d=IDX.byFinding[f.id]||{},p=prescriptionFor(f);
+  var s=el('div');
+  s.appendChild(el('h3','sec','Why it happened'));
+  if(f.cause_plain)s.appendChild(el('p','lede',f.cause_plain));
+
+  var chain=el('div','chain');
+  function node(cls,k,v){var n=el('div','node '+cls);n.appendChild(el('div','nk',k));n.appendChild(el('div','nv',v));return n;}
+  function arrow(){var a=el('span','arrow');a.textContent='→';return a;}
+  chain.appendChild(node('bad','What broke',whereOf(f)));
+  var att=d.attributed_change;
+  chain.appendChild(arrow());
+  chain.appendChild(node('mid','Traced to',att&&att.day!=null?('day '+att.day+', a '+String(att.kind||'configuration').replace(/_/g,' ')+' change'):'no change we can point at'));
+  if(p){chain.appendChild(arrow());chain.appendChild(node('fix','Proposed',String(p.change_type||'').replace(/[._]/g,' ')));}
+  s.appendChild(chain);
+
+  if(d.confidence!=null){
+    var card=el('div','card quiet');
+    card.appendChild(el('h3','sec','How sure we are'));
+    var line=el('div','sub');
+    line.appendChild(meter(d.confidence,'',{
+      title:'Diagnostic confidence',value:fmtPct(d.confidence,0),
+      definition:'How strongly the measured signals point to this cause rather than the alternatives. Set by which signatures matched, not by a model’s opinion.',
+      fidelity:'derived',coverage:1.0,
+      coverageBasis:'Derived from the signals that fired during detection.',
+      derivation:'Confidence recorded by the detector that raised this finding.'}));
+    line.appendChild(el('span','cap',d.cause_class?('cause recorded as '+String(d.cause_class).replace(/[._]/g,' ')):''));
+    card.appendChild(line);
+    s.appendChild(card);
+  }
+  if((d.evidence||[]).length){
+    var ex=el('button','expand','Show what we ruled out');
+    ex.onclick=function(){expandModal('What we ruled out',(d.evidence||[]).join('\n'));};
+    s.appendChild(ex);
+  }
+  if(f.needs_your_inference){
+    var note=el('div','flag');
+    note.appendChild(el('h3','sec','We could not name a cause'));
+    note.appendChild(el('p','body','The deviation is real and we are not going to invent a reason for it. If you know what changed here, record it on the decision slide, and it is kept with the finding.'));
+    s.appendChild(note);
+  }
+  return s;
+}
+
+/* 4 — the evidence, with the baseline named. */
+function slideEvidence(f){
+  var s=el('div');
+  s.appendChild(el('h3','sec','The evidence'));
+  if(f.baseline_plain)s.appendChild(el('p','lede',f.baseline_plain));
+
+  if(f.observed!=null&&f.expected!=null){
+    var mm=metricMeta(f.metric);
+    var card=el('div','card');
+    card.appendChild(el('h3','sec',mm.plain));
+    var scale=Math.max(Math.abs(f.observed),Math.abs(f.expected))||1;
+    var env=envelope(f,{fidelity:'measured',basis:'session'});
+    var pair=el('div','pair');
+    [['Now',f.observed,mm.better==='high'?'abandoned':'handoff'],
+     ['Baseline',f.expected,'resolved']].forEach(function(r){
+      var line=el('div','line');
+      line.appendChild(el('span','nm',r[0]));
+      line.appendChild(meter(Math.abs(r[1])/scale,r[2],{
+        title:mm.plain+', '+r[0].toLowerCase(),value:fmtBy(mm.unit,r[1]),
+        definition:r[0]==='Now'?'What this slice is doing inside the affected window.'
+          :((f.baseline||{}).why||'What this slice should be doing.'),
+        fidelity:env.fidelity,coverage:env.coverage,coverageBasis:env.coverageBasis,
+        excluded:env.excluded,calibration:env.calibration,
+        derivation:(f.impact||{}).derivation}));
+      pair.appendChild(line);
+    });
+    card.appendChild(pair);
+    if(f.baseline&&f.baseline.source)
+      card.appendChild(el('p','body','Baseline taken from '+f.baseline.source+'.'));
+    s.appendChild(card);
+  }
+
+  /* Coverage, said out loud rather than left in a popover. A number measured on three
+     quarters of the traffic is a different claim from one measured on all of it, and the
+     reader should not have to click to find that out. */
+  var covT=IDX.cov[f.tenant];
+  if(covT&&covT.value!=null&&covT.value<1){
+    var cc=el('div','card quiet');
+    cc.appendChild(el('h3','sec','How much of this traffic we can see at all'));
+    var line=el('div','sub');
+    line.appendChild(meter(covT.value,'refused',{
+      title:'Coverage',value:fmtPct(covT.value,0),
+      definition:'The share of this tenant’s conversations that can produce these numbers.',
+      fidelity:'derived',coverage:covT.value,coverageBasis:covT.basis,excluded:covT.excluded||[],
+      derivation:'Recomputed from this corpus, never assumed.'}));
+    line.appendChild(el('span','cap','of '+(f.tenant||'this tenant')+'’s conversations'));
+    cc.appendChild(line);
+    cc.appendChild(el('p','body',(covT.excluded||[]).length
+      ? 'Left out: '+covT.excluded.join('; ')+'. That traffic cannot produce these numbers at '
+        +'all, so it is excluded from the denominator rather than counted as working fine.'
+      : covT.basis||''));
+    s.appendChild(cc);
+  }
+
+  var rows=(f.evidence||[]).map(parseEvidence);
+  var numeric=rows.filter(function(r){return r.series;});
+  if(numeric.length){
+    var nc=el('div','card');
+    numeric.slice(0,4).forEach(function(r){nc.appendChild(numericEvidence(f,r));});
+    s.appendChild(nc);
+  }
+  var plain=(f.evidence||[]).filter(function(line){return !EV_RE.test(line);});
+  if(plain.length){
+    var pc=el('div','card quiet');
+    pc.appendChild(el('h3','sec','What we measured'));
+    plain.forEach(function(line){
+      var d=el('div','evline');d.appendChild(el('span','dot','•'));d.appendChild(el('span',null,line));pc.appendChild(d);
+    });
+    s.appendChild(pc);
+  }
+  if(!numeric.length&&!plain.length)
+    s.appendChild(el('p','empty','This finding carries no evidence lines.'));
+
+  if((f.impact||{}).derivation){
+    var ex=el('button','expand','Show the full working');
+    ex.onclick=function(){expandModal('How these numbers were computed',f.impact.derivation);};
+    s.appendChild(ex);
+  }
+  return s;
+}
+function numericEvidence(f,r){
+  var meta=guessMeta(r.series),env=envelope(f,meta);
+  var wrap=el('div','eff');
+  wrap.appendChild(el('div','lab',meta.plain));
+  wrap.appendChild(num(fmtBy(meta.unit,r.obs),{
+    title:meta.plain,value:fmtBy(meta.unit,r.obs),definition:meta.definition,
+    fidelity:env.fidelity,coverage:env.coverage,coverageBasis:env.coverageBasis,
+    excluded:env.excluded,calibration:env.calibration,derivation:r.raw},'val tnum'));
+  var sub=el('div','sub');
+  var scale=Math.max(Math.abs(r.obs),Math.abs(r.base))||1;
+  sub.appendChild(meter(Math.abs(r.obs)/scale,'',{
+    title:meta.plain,value:fmtBy(meta.unit,r.obs),definition:meta.definition,
+    fidelity:env.fidelity,coverage:env.coverage,coverageBasis:env.coverageBasis,
+    excluded:env.excluded,calibration:env.calibration,derivation:r.raw}));
+  sub.appendChild(el('span','cap','against '+fmtBy(meta.unit,r.base)+' before'));
+  wrap.appendChild(sub);
+  var prov=el('div','prov');
+  prov.appendChild(el('span','tag grey',env.fidelity));
+  if(env.coverage!=null&&env.coverage<1)
+    prov.appendChild(el('span','tag amber','covers '+fmtPct(env.coverage,0)+' of this tenant'));
+  wrap.appendChild(prov);
   return wrap;
 }
 
-var REASONS = {
-  accepted: ['Evidence is unambiguous', 'Cheap and reversible', 'Replay result is convincing'],
-  rejected: ['Diagnosis not convincing', 'Fix is too risky', 'Not worth the effort',
-             'Owned by another team', 'Golden set regressed'],
-  deferred: ['Need the owning team to confirm', 'Waiting on a business decision',
-             'Want a narrower fix first']
+/* 5 — the fix, and whether it is proven. */
+function slideFix(f){
+  var p=prescriptionFor(f);
+  var s=el('div');
+  s.appendChild(el('h3','sec','The fix'));
+  if(!p){
+    s.appendChild(el('p','empty','No fix is proposed for this finding. It is reported so a person can route it to the team that owns it.'));
+    return s;
+  }
+  var c=el('div','card');
+  c.appendChild(el('p','lede',(p.decision&&p.decision.asking_approval_for)||p.description||''));
+  if(p.predicted_plain)c.appendChild(el('p','body',p.predicted_plain));
+  var pd=p.predicted_delta||{};
+  if(pd.metric&&pd.from!=null&&pd.to!=null){
+    var mm=metricMeta(pd.metric);
+    var scale=Math.max(Math.abs(pd.from),Math.abs(pd.to))||1;
+    var pair=el('div','pair');
+    [['Now',pd.from,'abandoned'],['If it works',pd.to,'resolved']].forEach(function(r){
+      var line=el('div','line');
+      line.appendChild(el('span','nm',r[0]));
+      line.appendChild(meter(Math.abs(r[1])/scale,r[2],{
+        title:mm.plain+', '+r[0].toLowerCase(),value:fmtBy(mm.unit,r[1]),
+        definition:r[0]==='Now'?'Measured inside the affected window.'
+          :'The baseline this fix is predicted to restore. Naming the target up front is what makes the claim checkable afterwards.',
+        fidelity:'derived',coverage:1.0,
+        coverageBasis:'Both figures come from measurements already shown on the evidence slide.',
+        derivation:'Predicted delta recorded with the prescription.'}));
+      pair.appendChild(line);
+    });
+    c.appendChild(pair);
+  }
+  if(p.autonomy_rung)c.appendChild(el('p','body','Autonomy '+p.autonomy_rung+'. A person signs this off; nothing ships itself.'));
+  s.appendChild(c);
+
+  if(p.decision&&p.decision.risk_if_diagnosis_wrong){
+    var risk=el('div','card quiet');
+    risk.appendChild(el('h3','sec','If we have this wrong'));
+    risk.appendChild(el('p','body',p.decision.risk_if_diagnosis_wrong));
+    s.appendChild(risk);
+  }
+  if(p.decision&&p.decision.would_not_ship_if){
+    var stop=el('div','stop');
+    stop.appendChild(el('h3','sec','We would not ship it if'));
+    stop.appendChild(el('p','body',p.decision.would_not_ship_if));
+    s.appendChild(stop);
+  }
+
+  var vs=IDX.byPres[p.id]||[];
+  if(!vs.length){
+    var none=el('div','card quiet');
+    none.appendChild(el('h3','sec','Has it been proven?'));
+    none.appendChild(el('p','body','No. This fix has not been through the replay service, so there is no before and after behind it. What you see above is a prediction, and we are not going to dress it up as evidence.'));
+    s.appendChild(none);
+  }
+  vs.forEach(function(v){s.appendChild(verification(v));});
+  return s;
+}
+function verification(v){
+  var box=el('div',v.verdict==='improved'?'good':v.verdict==='regressed'?'stop':'card quiet');
+  var VI={improved:'It worked',no_effect:'It changed nothing',regressed:'It made things worse'};
+  box.appendChild(el('h3','sec',VI[v.verdict]||String(v.verdict||'')));
+  if(v.before!=null&&v.after!=null){
+    var mm=metricMeta(v.metric);
+    var scale=Math.max(Math.abs(v.before),Math.abs(v.after))||1;
+    var pair=el('div','pair');
+    [['Before',v.before,'handoff'],['After',v.after,v.verdict==='improved'?'resolved':'abandoned']].forEach(function(r){
+      var line=el('div','line');
+      line.appendChild(el('span','nm',r[0]));
+      line.appendChild(meter(Math.abs(r[1])/scale,r[2],{
+        title:mm.plain+', '+r[0].toLowerCase(),value:fmtBy(mm.unit,r[1]),
+        definition:'Returned by the replay service for the affected slice of traffic.',
+        fidelity:'measured',coverage:1.0,
+        coverageBasis:'Replayed over the same conversations the fault ran on.',
+        derivation:'Replay run '+v.replay_run_id+', metric '+v.metric+'.'}));
+      pair.appendChild(line);
+    });
+    box.appendChild(pair);
+  }
+  var prov=el('div','prov');
+  if(v.golden_set_pass===true)prov.appendChild(el('span','tag green','known-good conversations unharmed'));
+  if(v.golden_set_pass===false)prov.appendChild(el('span','tag red','known-good conversations regressed'));
+  if(v.prediction_error!=null)prov.appendChild(el('span','tag grey','we were out by '+v.prediction_error));
+  if(v.replay_run_id)prov.appendChild(el('span','tag grey',v.replay_run_id));
+  box.appendChild(prov);
+  return box;
+}
+
+/* 6 — the decision. */
+function slideDecide(f){
+  var p=prescriptionFor(f);
+  var s=el('div');
+  s.appendChild(el('h3','sec',f.needs_your_inference?'Over to you':'Your decision'));
+  if(!p){
+    s.appendChild(el('p','empty','There is nothing to approve here. This finding is reported for routing, not for a change.'));
+    return s;
+  }
+  var a=p.approval;
+  if(a&&a.verdict){
+    var WORD={accepted:['good','Accepted','approved for shipping'],
+      rejected:['flag','Rejected','not shipped, and the reason is recorded'],
+      deferred:['card quiet','Deferred','escalated, nothing changed']};
+    var ui=WORD[a.verdict]||WORD.deferred;
+    var box=el('div',ui[0]);
+    box.appendChild(el('h3','sec',ui[1]+', '+ui[2]));
+    box.appendChild(el('p','body',a.reason));
+    box.appendChild(el('p','body',a.decided_by+', '+a.at));
+    var hist=p.approval_history||[];
+    var bound=hist.length?hist[hist.length-1].report_build:null;
+    if(bound)box.appendChild(el('p','body',bound===R.report_build
+      ? 'Recorded against the evidence on this screen.'
+      : 'Recorded against an older build of the report. The evidence has been rebuilt since.'));
+    var acts=el('div','chips');
+    var ch=el('button','btn sm','Change this decision');ch.type='button';
+    ch.onclick=function(){openDecision(f,p,null);};
+    var vw=el('button','btn sm','See it in the report');vw.type='button';
+    vw.onclick=function(){showWritten(p);};
+    acts.appendChild(ch);acts.appendChild(vw);box.appendChild(acts);
+    s.appendChild(box);
+    var next=IDX.regs.filter(function(g){return !decided(prescriptionFor(g));})[0];
+    if(next){
+      var nb=el('button','btn','Next one needing you');nb.type='button';
+      nb.style.marginTop='12px';nb.onclick=function(){goFromList('f',next.id);};
+      s.appendChild(nb);
+    }
+    return s;
+  }
+
+  var recap=el('div','card');
+  recap.appendChild(el('h3','sec','What you are approving'));
+  recap.appendChild(el('p','body',(p.decision&&p.decision.asking_approval_for)||p.description||''));
+  s.appendChild(recap);
+
+  var acts=el('div','chips');
+  var yes=el('button','btn go',f.needs_your_inference?'Record what you think':'Approve the fix');
+  yes.type='button';yes.onclick=function(){openDecision(f,p,'accepted');};
+  var no=el('button','btn no','Reject');no.type='button';no.onclick=function(){openDecision(f,p,'rejected');};
+  var later=el('button','btn','Defer');later.type='button';later.onclick=function(){openDecision(f,p,'deferred');};
+  acts.appendChild(yes);acts.appendChild(no);acts.appendChild(later);
+  acts.style.marginTop='4px';
+  s.appendChild(acts);
+  s.appendChild(el('p','body','Your name, your reason and the time go into the report, tied to this exact build of the evidence. A reasoned rejection is as complete an answer as an approval.'));
+  return s;
+}
+
+/* ---- context sequences ------------------------------------------------------------------- */
+function slideDismissed(f){
+  var d=IDX.byFinding[f.id]||{};
+  var s=el('div');
+  s.appendChild(el('span','tag violet','examined and set aside'));
+  s.appendChild(el('h1','headline',titleOf(f)));
+  if(f.what_happened)s.appendChild(el('p','lede',f.what_happened));
+  var card=el('div','card');
+  card.appendChild(el('h3','sec','Why this is not a fault'));
+  card.appendChild(el('p','body',f.dismissed_plain||f.not_a_regression_because||''));
+  s.appendChild(card);
+  var scope=el('div','scope');
+  scope.appendChild(el('span',null,whereOf(f)));
+  if(d.cause_class)scope.appendChild(el('span',null,'recorded as '+String(d.cause_class).replace(/[._]/g,' ')));
+  s.appendChild(scope);
+  if((f.evidence||[]).length){
+    var ex=el('button','expand','Show the measurements behind it');
+    ex.onclick=function(){expandModal('Measurements behind '+titleOf(f),(f.evidence||[]).join('\n'));};
+    s.appendChild(ex);
+  }
+  return s;
+}
+function slideGap(g){
+  var p=g.plain||{};
+  var s=el('div');
+  var VERD={NOT_MEASURABLE:['red','we cannot answer this'],
+    REQUIRES_NEW_JUDGE:['amber','this needs a judge nobody has built'],
+    COVERAGE_TOO_LOW:['amber','too little traffic can answer this'],
+    CARDINALITY_REFUSED:['violet','refused rather than truncated']};
+  var v=VERD[g.verdict]||['violet',String(g.verdict||'').replace(/_/g,' ').toLowerCase()];
+  s.appendChild(el('span','tag '+v[0],v[1]));
+  s.appendChild(el('h1','headline',p.asked||('Operator question '+g.ask_id)));
+  if(p.refused_because)s.appendChild(el('p','lede',p.refused_because));
+  if(g.why){
+    var card=el('div','card');
+    card.appendChild(el('h3','sec','In detail'));
+    card.appendChild(el('p','body',sentence(g.why)));
+    s.appendChild(card);
+  }
+  if(g.nearest_proxy){
+    var trap=el('div','flag');
+    trap.appendChild(el('h3','sec','The tempting answer, and why we did not give it'));
+    trap.appendChild(el('p','body',g.nearest_proxy+', '+(g.why_the_proxy_misleads||'')));
+    s.appendChild(trap);
+  }
+  if(p.what_would_have_to_exist){
+    var need=el('div','card quiet');
+    need.appendChild(el('h3','sec','What would have to change'));
+    need.appendChild(el('p','body',p.what_would_have_to_exist));
+    var re=g.required_event;
+    if(re&&re.name){
+      var spec=el('pre','spec');
+      spec.textContent='event '+re.name+' {\n'+(re.fields||[]).map(function(x){return '  '+x;}).join(',\n')
+        +'\n}\ngrain: '+(re.grain||'')+'\nowner: '+(re.owner||'');
+      need.appendChild(spec);
+    }
+    s.appendChild(need);
+  }
+  return s;
+}
+function slideHitRate(){
+  var sa=R.self_assessment||{};
+  var s=el('div');
+  s.appendChild(el('h3','sec','How often we are right'));
+  var acc=sa.prescription_accuracy||{},keys=Object.keys(acc);
+  if(keys.length){
+    keys.forEach(function(k){
+      var e=acc[k]||{},card=el('div','card');
+      card.appendChild(el('h3','sec',String(k).replace(/[._]/g,' ')));
+      if(e.hit_rate!=null){
+        var line=el('div','sub');
+        line.appendChild(meter(e.hit_rate,'resolved',{
+          title:'Hit rate for '+k,value:fmtPct(e.hit_rate,0),
+          definition:'How often a fix of this kind moved the metric the way we predicted.',
+          fidelity:'derived',coverage:1.0,
+          coverageBasis:'Computed over the predictions that have been checked against a replay outcome.',
+          derivation:'Based on '+(e.n||0)+' checked prediction(s).'}));
+        line.appendChild(el('span','cap','over '+(e.n||0)+' checked'));
+        card.appendChild(line);
+      }else{
+        card.appendChild(el('p','body','Recorded, but no hit rate is claimed yet.'));
+      }
+      s.appendChild(card);
+    });
+  }else{
+    s.appendChild(el('p','lede','Nothing to report yet, and we would rather say so than show a number we have not earned.'));
+  }
+  if(sa.notes)s.appendChild(el('p','body',sa.notes));
+  return s;
+}
+function slideAbout(){
+  var s=el('div');
+  s.appendChild(el('h3','sec','What this system really does'));
+  s.appendChild(el('p','lede','Faking things in six days is fine. Hiding it is not. This is the honest inventory.'));
+  var TONE={real:['green','real'],templated:['grey','written by us, not a model'],
+    not_run:['amber','not run on this report'],known_limit:['violet','a known limit']};
+  (R.whats_real||[]).forEach(function(w){
+    var card=el('div','card');
+    var head=el('h3','sec',w.claim);
+    card.appendChild(head);
+    var t=TONE[w.status]||['grey',String(w.status||'').replace(/_/g,' ')];
+    var prov=el('div','prov');prov.appendChild(el('span','tag '+t[0],t[1]));
+    card.appendChild(prov);
+    card.appendChild(el('p','body',w.why));
+    s.appendChild(card);
+  });
+  if(!(R.whats_real||[]).length)
+    s.appendChild(el('p','empty','This report predates the honesty inventory. Rebuild it to see this filled in.'));
+  if(R.system_notes){
+    var ex=el('button','expand','Show the build notes from the report');
+    ex.onclick=function(){expandModal('System notes',R.system_notes);};
+    s.appendChild(ex);
+  }
+  return s;
+}
+
+/* ========================================================================================== *
+ *  THE DECK — sequences, routing, keyboard
+ * ========================================================================================== */
+function slidesFor(seq,key){
+  var out=[];
+  function add(id,title,render){out.push({id:id,title:title,render:render});}
+  if(seq==='f'){
+    var f=IDX.findingById[key];
+    if(!f)return [];
+    add('problem','The problem',function(){return slideProblem(f);});
+    add('impact','What it did',function(){return slideImpact(f);});
+    if(!f.needs_your_inference)add('cause','Why',function(){return slideCause(f);});
+    add('evidence','The evidence',function(){return slideEvidence(f);});
+    if(prescriptionFor(f)&&!f.needs_your_inference)add('fix','The fix',function(){return slideFix(f);});
+    add('decide','Decide',function(){return slideDecide(f);});
+    return out;
+  }
+  if(seq==='dismissed'){
+    IDX.dis.forEach(function(f,i){
+      add('d'+i,titleOf(f).slice(0,26),function(){return slideDismissed(f);});
+    });
+    return out;
+  }
+  if(seq==='gaps'){
+    (R.gaps||[]).forEach(function(g,i){
+      add('g'+i,g.ask_id||('question '+(i+1)),function(){return slideGap(g);});
+    });
+    return out;
+  }
+  if(seq==='hitrate'){add('hr','How often we are right',slideHitRate);return out;}
+  if(seq==='about'){add('ab','What this really does',slideAbout);return out;}
+  return out;
+}
+
+function go(seq,key,i){
+  location.hash='#/'+seq+(key?'/'+encodeURIComponent(key):'')+'/'+(i||0);
+}
+/* Stacked on a phone, the list fills the screen and the slide opens off-screen below it. */
+function goFromList(seq,key){
+  go(seq,key,0);
+  if(window.innerWidth<=900){
+    var stage=$('#stage');
+    if(stage&&stage.scrollIntoView)stage.scrollIntoView({behavior:REDUCED?'auto':'smooth',block:'start'});
+  }
+}
+function readHash(){
+  var m=/^#\/([a-z]+)(?:\/([^/]+))?(?:\/(\d+))?$/.exec(location.hash||'');
+  if(!m)return null;
+  var seq=m[1],key=m[2]?decodeURIComponent(m[2]):null,i=m[3]?parseInt(m[3],10):0;
+  if(seq!=='f'&&m[2]&&!m[3])i=parseInt(m[2],10)||0;
+  return {seq:seq,key:seq==='f'?key:null,i:i};
+}
+function defaultDeck(){
+  var open=IDX.regs.filter(function(f){return !decided(prescriptionFor(f));});
+  var first=open[0]||IDX.regs[0];
+  if(first)return {seq:'f',key:first.id,i:0};
+  if(IDX.dis.length)return {seq:'dismissed',key:null,i:0};
+  return {seq:'about',key:null,i:0};
+}
+
+function safeRender(slide){
+  try{
+    var node=slide.render();
+    if(node)return node;
+  }catch(e){
+    if(window.console)console.error('slide failed',slide.id,e);
+  }
+  var s=el('div');
+  s.appendChild(el('p','empty','This report does not carry what this slide would show. Nothing is being hidden; there is no data behind it.'));
+  return s;
+}
+
+function renderStage(){
+  var stage=$('#stage');stage.innerHTML='';
+  var slides=slidesFor(DECK.seq,DECK.key);
+  if(!slides.length){
+    var empty=el('div','slide');
+    empty.appendChild(el('p','empty','Nothing to show here on this run.'));
+    stage.appendChild(empty);
+    return;
+  }
+  if(DECK.i>=slides.length)DECK.i=slides.length-1;
+  if(DECK.i<0)DECK.i=0;
+
+  var prog=el('div','progress');
+  slides.forEach(function(sl,n){
+    var b=el('button');b.type='button';
+    b.setAttribute('aria-current',n===DECK.i?'true':'false');
+    if(n<DECK.i)b.className='seen';
+    b.appendChild(el('i'));
+    b.appendChild(el('span',null,sl.title));
+    b.onclick=function(){go(DECK.seq,DECK.key,n);};
+    prog.appendChild(b);
+  });
+  stage.appendChild(prog);
+
+  var body=el('div','slide enter');
+  body.appendChild(safeRender(slides[DECK.i]));
+  stage.appendChild(body);
+  if(body.scrollHeight<=body.clientHeight)body.classList.add('mid');
+
+  var foot=el('div','foot');
+  var back=el('button','btn sm','Back');back.type='button';back.disabled=DECK.i===0;
+  back.onclick=function(){go(DECK.seq,DECK.key,DECK.i-1);};
+  foot.appendChild(back);
+  var next=el('button','btn sm'+(DECK.i===slides.length-1?'':' go'),
+    DECK.i===slides.length-1?'Back to the list':'Next');
+  next.type='button';
+  next.onclick=function(){
+    if(DECK.i===slides.length-1){var d=defaultDeck();go(d.seq,d.key,d.i);}
+    else go(DECK.seq,DECK.key,DECK.i+1);
+  };
+  foot.appendChild(next);
+  foot.appendChild(el('span','sp'));
+  if(DECK.i<slides.length-1)foot.appendChild(el('span','hint','Next: '+slides[DECK.i+1].title));
+  stage.appendChild(foot);
+}
+
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'){
+    if($('.pop'))return closePop();
+    if($('#overlay').innerHTML)return closeModal();
+    return;
+  }
+  if($('#overlay').innerHTML)return;
+  if(/^(INPUT|TEXTAREA)$/.test((e.target||{}).tagName||''))return;
+  var slides=DECK?slidesFor(DECK.seq,DECK.key):[];
+  if(e.key==='ArrowRight'&&DECK&&DECK.i<slides.length-1)go(DECK.seq,DECK.key,DECK.i+1);
+  if(e.key==='ArrowLeft'&&DECK&&DECK.i>0)go(DECK.seq,DECK.key,DECK.i-1);
+});
+
+/* ---------- the decision write path ------------------------------------------------------- */
+var PICKS={
+  accepted:['The evidence is clear','Cheap and easy to undo','The replay result convinces me'],
+  rejected:['The diagnosis does not convince me','Too risky to ship','Not worth the effort',
+            'Another team owns this','Known-good conversations regressed'],
+  deferred:['Need the owning team to confirm','Waiting on a business call','Want a narrower fix first']
 };
+function closeModal(){$('#overlay').innerHTML='';}
+function openDecision(f,p,verdict){
+  var ov=$('#overlay');ov.innerHTML='';
+  var scrim=el('div','scrim'),m=el('div','modal');
+  var state={verdict:verdict||'accepted'};
+  var inference=!!f.needs_your_inference;
+  m.appendChild(el('h3',null,inference?'Record what you think is going on':'Record your decision'));
+  m.appendChild(el('p','body',(p.decision&&p.decision.asking_approval_for)||''));
 
-function closeModal() { $('#overlay').innerHTML = ''; }
-
-function openDecision(f, p, verdict) {
-  var ov = $('#overlay');
-  ov.innerHTML = '';
-  var scrim = el('div', 'scrim');
-  var m = el('div', 'modal');
-  var state = { verdict: verdict || 'rejected' };
-
-  m.appendChild(el('h3', null, 'Record a decision on this fix'));
-  m.appendChild(el('p', 'small dim', p.decision ? p.decision.asking_approval_for : ''));
-
-  m.appendChild(el('label', null, 'Your decision'));
-  var vrow = el('div', 'reasons');
-  var vbtns = {};
-  ['accepted', 'rejected', 'deferred'].forEach(function (v) {
-    var b = el('button', null, VERDICT_UI[v].word);
-    b.type = 'button';
-    vbtns[v] = b;
-    b.onclick = function () { state.verdict = v; paint(); };
-    vrow.appendChild(b);
+  m.appendChild(el('label',null,'Your decision'));
+  var vrow=el('div','picks'),vb={};
+  [['accepted','Approve'],['rejected','Reject'],['deferred','Defer']].forEach(function(pair){
+    var b=el('button',null,pair[1]);b.type='button';vb[pair[0]]=b;
+    b.onclick=function(){state.verdict=pair[0];paint();};vrow.appendChild(b);
   });
   m.appendChild(vrow);
 
-  m.appendChild(el('label', null, 'Your name or email'));
-  var who = el('input');
-  who.value = localStorage.getItem('loopdesk.who') || '';
-  who.placeholder = 'ops.lead@example.com';
-  m.appendChild(who);
+  m.appendChild(el('label',null,'Your name or email'));
+  var who=el('input');try{who.value=localStorage.getItem('loopdesk.who')||'';}catch(e){}
+  who.placeholder='ops.lead@example.com';m.appendChild(who);
 
-  var rlabel = el('label', null, 'Reason');
-  m.appendChild(rlabel);
-  var quick = el('div', 'reasons');
-  m.appendChild(quick);
-  var why = el('textarea');
-  why.placeholder = 'Why this decision? This is recorded in the report.';
+  var rlabel=el('label',null,'Reason');m.appendChild(rlabel);
+  var quick=el('div','picks');m.appendChild(quick);
+  var why=el('textarea');
+  why.placeholder=inference?'What do you think caused this? It is kept with the finding.'
+    :'Why this decision? It goes into the report.';
   m.appendChild(why);
+  var conf=el('div','confirm');m.appendChild(conf);
+  var errBox=el('div');m.appendChild(errBox);
 
-  var conf = el('div', 'confirm');
-  m.appendChild(conf);
-  var errBox = el('div');
-  m.appendChild(errBox);
+  var acts=el('div','picks');acts.style.marginTop='18px';
+  var cancel=el('button','btn','Cancel');cancel.type='button';cancel.onclick=closeModal;
+  var go2=el('button','btn go','Record it');go2.type='button';
+  acts.appendChild(cancel);acts.appendChild(go2);m.appendChild(acts);
 
-  var acts = el('div', 'acts');
-  var cancel = el('button', 'btn', 'Cancel');
-  cancel.type = 'button';
-  cancel.onclick = closeModal;
-  var go = el('button', 'btn pri', 'Confirm');
-  go.type = 'button';
-  acts.appendChild(cancel);
-  acts.appendChild(go);
-  m.appendChild(acts);
-
-  function paint() {
-    ['accepted', 'rejected', 'deferred'].forEach(function (v) {
-      var on = v === state.verdict;
-      vbtns[v].style.background = on ? 'var(--ink)' : '#fff';
-      vbtns[v].style.color = on ? '#fff' : 'var(--ink-2)';
-      vbtns[v].style.borderColor = on ? 'var(--ink)' : 'var(--rule)';
+  function paint(){
+    ['accepted','rejected','deferred'].forEach(function(v){
+      var on=v===state.verdict;
+      vb[v].style.background=on?'var(--act)':'rgba(255,255,255,.7)';
+      vb[v].style.color=on?'#fff':'var(--ink-2)';
+      vb[v].style.borderColor=on?'var(--act)':'var(--hair)';
     });
-    rlabel.textContent = 'Reason (required)';
-    quick.innerHTML = '';
-    (REASONS[state.verdict] || []).forEach(function (r) {
-      var b = el('button', null, r);
-      b.type = 'button';
-      b.onclick = function () { why.value = why.value ? why.value : r; why.focus(); };
-      quick.appendChild(b);
+    rlabel.textContent=inference?'What you think (required)':'Reason (required)';
+    quick.innerHTML='';
+    if(!inference)(PICKS[state.verdict]||[]).forEach(function(r){
+      var b=el('button',null,r);b.type='button';
+      b.onclick=function(){if(!why.value)why.value=r;why.focus();};quick.appendChild(b);
     });
-    conf.textContent =
-      'writes to   loop-report.json → prescriptions[' + p.id + '].approval\n'
-      + 'verdict     ' + state.verdict + '\n'
-      + 'change      ' + p.change_type + ' on ' + p.target + '\n'
-      + 'against     report build ' + (R.report_build || 'n/a') + '\n'
-      + 'then        re-validated against the schema before it is saved';
+    conf.textContent='writes to  prescriptions['+p.id+'].approval\n'
+      +'verdict    '+state.verdict+'\n'
+      +'change     '+p.change_type+' on '+p.target+'\n'
+      +'against    build '+(R.report_build||'n/a')+'\n'
+      +'checked    before anything is saved';
   }
   paint();
 
-  go.onclick = function () {
-    errBox.innerHTML = '';
-    if (!who.value.trim()) { errBox.appendChild(el('div', 'err', 'Your name is required — an unsigned decision is not a decision.')); return; }
-    if (!why.value.trim()) { errBox.appendChild(el('div', 'err', 'A reason is required. A rejection with a good reason scores as well as an approval — but a decision with no reason is not a record.')); return; }
-    localStorage.setItem('loopdesk.who', who.value.trim());
-    go.disabled = true;
-    go.textContent = 'Writing…';
-    fetch('/decision', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prescription_id: p.id, verdict: state.verdict,
-                             decided_by: who.value.trim(), reason: why.value.trim(),
-                             report_build: R.report_build })
-    }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-      .then(function (res) {
-        go.disabled = false;
-        go.textContent = 'Confirm';
-        if (!res.ok) {
-          errBox.appendChild(el('div', 'err', (res.j.error || 'write failed') + ' '
-            + (res.j.detail || '') + ' ' + ((res.j.contract || []).join('; '))));
+  go2.onclick=function(){
+    errBox.innerHTML='';
+    if(!who.value.trim()){errBox.appendChild(el('div','err','Your name is needed. An unsigned decision is not a decision.'));return;}
+    if(!why.value.trim()){errBox.appendChild(el('div','err','A reason is needed. A rejection with a good reason counts for as much as an approval, but a decision with no reason is not a record.'));return;}
+    try{localStorage.setItem('loopdesk.who',who.value.trim());}catch(e){}
+    go2.disabled=true;go2.textContent='Writing…';
+    fetch('/decision',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({prescription_id:p.id,verdict:state.verdict,decided_by:who.value.trim(),
+        reason:why.value.trim(),report_build:R.report_build})})
+      .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})
+      .then(function(res){
+        go2.disabled=false;go2.textContent='Record it';
+        if(!res.ok){
+          errBox.appendChild(el('div','err',(res.j.error||'the write failed')+' '+(res.j.detail||'')));
           return;
         }
         closeModal();
-        load(function () { showWritten(IDX.presById[p.id], res.j); });
+        load(function(){showWritten(IDX.presById[p.id],res.j);});
       })
-      .catch(function (e) {
-        go.disabled = false;
-        go.textContent = 'Confirm';
-        errBox.appendChild(el('div', 'err', 'Could not reach the server: ' + e
-          + '. The page is open without screen/serve.py running, so nothing can be written.'));
+      .catch(function(e){
+        go2.disabled=false;go2.textContent='Record it';
+        errBox.appendChild(el('div','err','Could not reach the server. The page is open without screen/serve.py running, so nothing can be written. ('+e+')'));
       });
   };
-
-  scrim.appendChild(m);
-  scrim.onclick = function (e) { if (e.target === scrim) closeModal(); };
-  ov.appendChild(scrim);
-  who.focus();
+  scrim.appendChild(m);scrim.onclick=function(e){if(e.target===scrim)closeModal();};
+  ov.appendChild(scrim);who.focus();
+}
+function showWritten(p,res){
+  var ov=$('#overlay');ov.innerHTML='';
+  var scrim=el('div','scrim'),m=el('div','modal');
+  m.appendChild(el('h3',null,'Written into the report'));
+  m.appendChild(el('p','body','This is the file the judges open. '+((res&&res.path)||'engine/out/loop-report.json')));
+  m.appendChild(el('div','raw','"approval": '+JSON.stringify((p||{}).approval,null,2)));
+  m.appendChild(el('p','body','The report was re-checked after this was written. Had it failed that check, nothing would have been saved.'));
+  var acts=el('div','picks');acts.style.marginTop='16px';
+  var b=el('button','btn go','Close');b.type='button';b.onclick=closeModal;acts.appendChild(b);m.appendChild(acts);
+  scrim.appendChild(m);scrim.onclick=function(e){if(e.target===scrim)closeModal();};ov.appendChild(scrim);
 }
 
-/* Proof, not assertion: show the actual JSON now sitting in the file. */
-function showWritten(p, res) {
-  var ov = $('#overlay');
-  ov.innerHTML = '';
-  var scrim = el('div', 'scrim');
-  var m = el('div', 'modal');
-  m.appendChild(el('h3', null, 'Written to loop-report.json'));
-  m.appendChild(el('p', 'small dim', 'This is the file the judges open. Path: '
-    + ((res && res.path) || 'engine/out/loop-report.json')));
-  if (res && res.before) {
-    m.appendChild(el('div', 'k', 'Before'));
-    m.appendChild(el('div', 'raw', JSON.stringify(res.before, null, 2)));
-  } else {
-    m.appendChild(el('div', 'k', 'Before'));
-    m.appendChild(el('div', 'raw', 'prescriptions[' + p.id + '] had no "approval" key.\n'
-      + 'The pipeline never writes one — only this screen may.'));
-  }
-  m.appendChild(el('div', 'k', 'After'));
-  m.appendChild(el('div', 'raw', '"approval": ' + JSON.stringify(p.approval, null, 2)));
-  m.appendChild(el('p', 'small dim', 'The report was re-validated against '
-    + 'schema/loop-report.schema.json and the project’s contract checks after this was '
-    + 'written. If either had failed, nothing would have been saved.'));
-  var acts = el('div', 'acts');
-  var b = el('button', 'btn pri', 'Close');
-  b.type = 'button';
-  b.onclick = closeModal;
-  acts.appendChild(b);
-  m.appendChild(acts);
-  scrim.appendChild(m);
-  scrim.onclick = function (e) { if (e.target === scrim) closeModal(); };
-  ov.appendChild(scrim);
+/* ---------- small shared pieces ----------------------------------------------------------- */
+function expandModal(title,text){
+  var ov=$('#overlay');ov.innerHTML='';
+  var scrim=el('div','scrim'),m=el('div','modal');
+  m.appendChild(el('h3',null,title));
+  m.appendChild(el('div','raw',text));
+  var acts=el('div','picks');acts.style.marginTop='16px';
+  var b=el('button','btn go','Close');b.type='button';b.onclick=closeModal;acts.appendChild(b);m.appendChild(acts);
+  scrim.appendChild(m);scrim.onclick=function(e){if(e.target===scrim)closeModal();};ov.appendChild(scrim);
 }
-
-/* ---------- WHAT WE THREW AWAY ------------------------------------------------------------ */
-/* Staying quiet about a lookalike is not the same as dismissing it. Every one of these was
- * examined and written off in writing, with the cause named. */
-function renderDismissals() {
-  var s = el('section');
-  var h = el('h2', null, 'What we threw away ');
-  h.appendChild(el('span', 'cnt', '— ' + IDX.dis.length
-    + ' things that looked like problems and were not'));
-  s.appendChild(h);
-  if (!IDX.dis.length) {
-    s.appendChild(el('p', 'dim', 'Nothing was examined and dismissed on this run.'));
-    return s;
-  }
-  IDX.dis.forEach(function (f) {
-    var d = IDX.byFinding[f.id] || {};
-    var row = el('div', 'dis');
-    var hd = el('div', 'hd');
-    hd.appendChild(el('span', 'tag grey', '✕ dismissed'));
-    var t = el('strong', null, f.title_plain || fallbackTitle(f, d));
-    hd.appendChild(t);
-    hd.appendChild(el('span', 'tag amber', d.cause_class || '?'));
-    row.appendChild(hd);
-    row.appendChild(el('div', 'small dim', f.tenant
-      + (f.cohort_label && f.cohort_label !== 'this deployment' ? ' · ' + f.cohort_label : '')
-      + ' · ' + (f.status_plain || '')));
-    if (f.not_a_regression_because) {
-      var p = el('p', 'small');
-      p.style.marginTop = '8px';
-      p.style.maxWidth = '84ch';
-      p.textContent = f.not_a_regression_because;
-      row.appendChild(p);
-    }
-    if ((f.evidence || []).length) {
-      var det = el('details');
-      det.appendChild(el('summary', null, 'Show the measurements behind this'));
-      det.appendChild(el('div', 'raw', f.evidence.join('\n')));
-      row.appendChild(det);
-    }
-    s.appendChild(row);
-  });
-  return s;
+function bindTip(node,text){
+  node.setAttribute('title',text);
+  node.addEventListener('mouseenter',function(){showTip(node,text);});
+  node.addEventListener('mouseleave',hideTip);
+  node.addEventListener('focus',function(){showTip(node,text);});
+  node.addEventListener('blur',hideTip);
 }
-
-/* ---------- WHAT WE CANNOT SEE ------------------------------------------------------------ */
-/* Permanently on the page. Not a tab, not a modal, not a second screen. */
-function renderGaps() {
-  var s = el('section');
-  var gaps = R.gaps || [];
-  var h = el('h2', null, 'What we cannot see ');
-  h.appendChild(el('span', 'cnt', '— ' + gaps.length
-    + ' question' + (gaps.length === 1 ? '' : 's') + ' we refused to answer'));
-  s.appendChild(h);
-
-  var VERD = {
-    NOT_MEASURABLE: ['red', 'NOT MEASURABLE'],
-    REQUIRES_NEW_JUDGE: ['amber', 'NEEDS A NEW JUDGE'],
-    COVERAGE_TOO_LOW: ['amber', 'COVERAGE TOO LOW'],
-    CARDINALITY_REFUSED: ['amber', 'REFUSED — CARDINALITY']
-  };
-  var ASKS = window.ASK_TEXT || {};
-
-  gaps.forEach(function (g) {
-    var row = el('div', 'gap');
-    var hd = el('div', 'hd');
-    hd.style.display = 'flex';
-    hd.style.gap = '11px';
-    hd.style.alignItems = 'baseline';
-    hd.style.flexWrap = 'wrap';
-    var q = el('strong', null, '“' + (ASKS[g.ask_id] || ('Operator question ' + g.ask_id)) + '”');
-    q.style.fontSize = '15.5px';
-    hd.appendChild(q);
-    var v = VERD[g.verdict] || ['grey', g.verdict];
-    hd.appendChild(el('span', 'tag ' + v[0], v[1]));
-    hd.appendChild(el('span', 'small dim', g.ask_id));
-    row.appendChild(hd);
-
-    if (g.why) {
-      var w = el('p', 'small');
-      w.style.marginTop = '9px';
-      w.style.maxWidth = '84ch';
-      w.textContent = g.why;
-      row.appendChild(w);
-    }
-    /* The seductive wrong answer, and why it misleads. The part most teams omit, and the part
-     * that shows the difference between refusing and not bothering. */
-    if (g.nearest_proxy) {
-      var pr = el('div', 'base');
-      pr.style.marginTop = '10px';
-      pr.appendChild(el('strong', null, 'The tempting answer is ' + g.nearest_proxy + ' — '));
-      pr.appendChild(document.createTextNode(g.why_the_proxy_misleads || ''));
-      row.appendChild(pr);
-    }
-    if (g.required_event) {
-      var re = g.required_event;
-      var spec = el('div', 'spec');
-      spec.appendChild(document.createTextNode('event ' + re.name + ' {\n'));
-      (re.fields || []).forEach(function (fl, i) {
-        spec.appendChild(document.createTextNode('  ' + fl
-          + (i < (re.fields.length - 1) ? ',' : '') + '\n'));
-      });
-      spec.appendChild(document.createTextNode('}\n'));
-      var c1 = el('span', 'c', 'grain: ' + (re.grain || '?') + '   owner: ' + (re.owner || '?'));
-      spec.appendChild(c1);
-      if (re.calibration_needs) {
-        spec.appendChild(document.createTextNode('\n'));
-        spec.appendChild(el('span', 'c', 'calibration needs: ' + re.calibration_needs));
-      }
-      row.appendChild(spec);
-      row.appendChild(el('p', 'small dim', 'That turns a gap into a ticket for a named team.'));
-    }
-    s.appendChild(row);
-  });
-
-  /* The cardinality refusal has no ask to hang off, so it would otherwise be invisible. It is
-   * the second refusal, and it is a refusal, so it belongs on this panel. */
-  var refused = [];
-  (R.metrics || []).forEach(function (m) {
-    ((m.plan || {}).refused_breakdowns || []).forEach(function (x) {
-      if (refused.indexOf(x) < 0) refused.push(x);
-    });
-  });
-  if (refused.length) {
-    var row = el('div', 'gap');
-    var hd = el('div', 'hd');
-    hd.style.display = 'flex';
-    hd.style.gap = '11px';
-    hd.style.alignItems = 'baseline';
-    hd.style.flexWrap = 'wrap';
-    var q = el('strong', null, '“Break that down per customer for me.”');
-    q.style.fontSize = '15.5px';
-    hd.appendChild(q);
-    hd.appendChild(el('span', 'tag amber', 'REFUSED — CARDINALITY'));
-    row.appendChild(hd);
-    var p = el('p', 'small');
-    p.style.marginTop = '9px';
-    p.style.maxWidth = '84ch';
-    p.textContent = 'Refused, not truncated. Silently returning the top 200 of these would look '
-      + 'like an answer and would not be one: ' + refused.join('; ') + '.';
-    row.appendChild(p);
-    s.appendChild(row);
-  }
-  return s;
+function showTip(node,text){
+  var t=$('#tip');t.textContent=text;t.classList.add('on');
+  var r=node.getBoundingClientRect();
+  t.style.left='-9999px';t.style.top='0px';
+  var tw=t.offsetWidth,th=t.offsetHeight;
+  var left=Math.min(Math.max(8,r.left),window.innerWidth-tw-8);
+  var top=r.bottom+8;
+  if(top+th>window.innerHeight-8)top=r.top-th-8;
+  t.style.left=left+'px';t.style.top=top+'px';
 }
+function hideTip(){var t=$('#tip');if(t)t.classList.remove('on');}
 
-/* ---------- self-assessment --------------------------------------------------------------- */
-function renderSelf() {
-  var sa = R.self_assessment;
-  if (!sa || !sa.notes) return null;
-  var s = el('section');
-  s.appendChild(el('h2', null, 'How often we are right'));
-  var acc = sa.prescription_accuracy || {};
-  var keys = Object.keys(acc);
-  if (keys.length) {
-    keys.forEach(function (k) {
-      var e = acc[k];
-      var row = el('div', 'dis');
-      var hd = el('div', 'hd');
-      hd.appendChild(el('strong', null, k));
-      hd.appendChild(el('span', 'small dim', 'n=' + e.n
-        + (e.improved != null ? ' · ' + e.improved + ' improved' : '')
-        + (e.broke_golden_set ? ' · ' + e.broke_golden_set + ' broke the golden set' : '')));
-      if (e.hit_rate != null) hd.appendChild(el('span', 'tag green', 'hit rate ' + fmtPct(e.hit_rate, 0)));
-      else hd.appendChild(el('span', 'tag grey', 'hit rate not computed'));
-      row.appendChild(hd);
-      if (e.hit_rate_declined_because) row.appendChild(el('p', 'small dim', e.hit_rate_declined_because));
-      s.appendChild(row);
-    });
-  }
-  var n = el('p', 'small');
-  n.style.maxWidth = '84ch';
-  n.style.marginTop = '12px';
-  n.textContent = sa.notes;
-  s.appendChild(n);
-  return s;
+/* ---------- boot -------------------------------------------------------------------------- */
+function render(){
+  DECK=readHash()||DECK||defaultDeck();
+  if(DECK.seq==='f'&&!IDX.findingById[DECK.key])DECK=defaultDeck();
+  renderBar();renderLedger();renderStage();
 }
-
-/* ---------- bootstrap --------------------------------------------------------------------- */
-function render() {
-  var app = $('#app');
-  app.innerHTML = '';
-  renderSysbar();
-  var f = IDX.regs[cur];
-  if (!f) {
-    var s = el('section');
-    s.appendChild(el('h1', null, 'Nothing in this deployment needs a decision.'));
-    s.appendChild(el('p', 'dim', 'The scan found no regression. That is a result, not an empty '
-      + 'screen — what it examined and dismissed is below, with the reasons.'));
-    app.appendChild(s);
-  } else {
-    app.appendChild(renderFinding(f));
-    app.appendChild(renderMeasured(f));
-    var w = renderWhy(f);
-    if (w) app.appendChild(w);
-    var pr = renderPropose(f);
-    if (pr) app.appendChild(pr);
-  }
-  app.appendChild(renderDismissals());
-  app.appendChild(renderGaps());
-  var sa = renderSelf();
-  if (sa) app.appendChild(sa);
-
-  var fr = el('div', 'frozen');
-  fr.appendChild(el('span', null, '🔒'));
-  fr.appendChild(el('span', null, 'Metric definitions, the judge version and the '
-    + 'good-conversation standard are frozen. This system proposes changes to the agent, never to '
-    + 'the yardstick. Every number on this page is read from loop-report.json; the screen reads a '
-    + 'static report and does not stream.'));
-  app.appendChild(fr);
-}
-
-function load(then) {
-  fetch('/report', { cache: 'no-store' }).then(function (r) { return r.json(); })
-    .then(function (rep) {
-      if (rep && rep.error) throw new Error(rep.error + ' — ' + (rep.hint || rep.detail || ''));
-      R = rep;
-      IDX = buildIndex(R);
-      if (cur >= IDX.regs.length) cur = Math.max(0, IDX.regs.length - 1);
+function load(then){
+  fetch('/report',{cache:'no-store'}).then(function(r){return r.json();})
+    .then(function(rep){
+      if(rep&&rep.error)throw new Error(rep.error+' — '+(rep.hint||rep.detail||''));
+      R=rep;IDX=buildIndex(R);
       render();
-      if (then) then();
+      if(then)then();
     })
-    .catch(function (e) {
-      $('#app').innerHTML = '<section><h1>No report to read.</h1><p class="dim">' + esc(String(e))
-        + '</p><div class="raw">python3 -m engine.cli --kit nexus-loop-day1/kit --team solo --out engine/out/loop-report.json\n'
-        + 'python3 screen/serve.py --report engine/out/loop-report.json</div></section>';
+    .catch(function(e){
+      $('#ledger').innerHTML='<h1 class="headline">No report to read.</h1>'
+        +'<p class="empty">'+esc(String(e))+'</p>'
+        +'<div class="raw">python3 -m engine.cli --kit nexus-loop-day1/kit --team solo --out engine/out/loop-report.json\n'
+        +'python3 screen/serve.py --report engine/out/loop-report.json</div>';
+      $('#stage').innerHTML='';
     });
 }
-
-/* The operator asks, in their own words. These come from the kit's asks.md and are the questions
- * the report answers or refuses; the report stores only their ids. */
-window.ASK_TEXT = {
-  A01: 'What share of conversations did we handle end to end without a human?',
-  A02: 'Are we getting better or worse month over month?',
-  A03: 'Which intents cost us the most per resolved conversation?',
-  A04: 'How often did a tool call fail?',
-  A05: 'Where are people dropping out of the returns journey?',
-  A06: 'Is the knowledge base actually answering what people ask?',
-  A07: 'Did the model upgrade help or hurt?',
-  A08: 'How much did we spend serving customers this month, and on what?',
-  A09: 'How many users gave up out of frustration rather than getting what they wanted and leaving?',
-  A10: 'Which conversations should a human review this week?',
-  A11: 'What is our failover rate — how often did a primary model or tool fail and an '
-       + 'alternate serve the user instead?'
-};
-
+window.addEventListener('hashchange',function(){if(IDX)render();});
+window.addEventListener('resize',hideTip);
 load();
-
 </script>
 </body>
 </html>

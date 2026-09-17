@@ -10,6 +10,36 @@ human's APPROVE/REJECT back into it.** That's the whole contract.
 
 ---
 
+## 0. Just want to see it work?
+
+```bash
+python3 run.py
+```
+
+Builds the report if it is missing, serves the screen at `http://127.0.0.1:8080`, opens it,
+and then watches the report file. Every approval, rejection or deferral you record on screen
+is printed in the terminal with what changed and what it did to the scorer's decision count,
+so you can see the write-back rather than take it on trust.
+
+| Flag | Effect |
+|------|--------|
+| `--rebuild` | regenerate the report first. Asks first, because it clears recorded decisions |
+| `--unknown` | build and serve a corpus containing a fault the engine cannot classify |
+| `--sample` | build from the 5% sample corpus |
+| `--port N` | serve somewhere other than 8080 |
+| `--no-open` | do not open a browser |
+
+It does not rebuild by default, so decisions survive a restart. They do not survive a
+rebuild, and that is deliberate: an approval is bound to the report's content hash, so it
+is a decision about the exact evidence someone read. Regenerate the report and the hash
+changes, which is why the screen refuses a decision made against evidence that has moved.
+Try it: leave the page open, run `python3 -m engine.cli …` in another terminal, then approve
+something. The write is refused and the page tells you to reload.
+
+The rest of this document is the manual version of the same thing.
+
+---
+
 ## 1. Prerequisites
 
 - **Python 3** (developed on 3.13; anything 3.9+ is fine). **No pip installs, no dependencies** —
@@ -219,16 +249,75 @@ untouched on the sealed corpus.
 
 ---
 
+## 9. The screen — Loop Desk
+
+A working screen already ships at `screen/index.html`, served by `screen/serve.py`. It reads
+whatever `--report` you point it at and is the write-back target for §4 — you do not need to
+build a screen from scratch to demo the loop end to end.
+
+```bash
+python3 screen/serve.py --report engine/out/loop-report.json
+# open http://127.0.0.1:8080
+```
+
+`--report`/`--page`/`--port`/`--host` are all overridable (defaults above). The server serves the
+one HTML file (no deps, no build) and exposes `GET /report` + `POST /decision`, which is the only
+thing that ever writes into the report — `screen/index.html`'s data layer and this write path are
+untouched by the redesign below.
+
+**Layout.** Two panes. The left is the ledger: a plain-language summary of the whole run with no
+figures in it, then "Needs you" (one row per regression, ordered by severity, each carrying a
+small band of what became of those conversations so you can rank the faults by shape before
+reading a single number), then a quieter "For context" list — the lookalikes we set aside, the
+questions we refused, our own hit rate, and what this system really does.
+
+The right pane is a six-slide walk through one finding, taken at the reader's pace:
+
+| Slide | What is on it |
+|-------|---------------|
+| 1 · The problem | One plain sentence, alone. Nothing else competes with it. |
+| 2 · What it did | The outcome band, then how many conversations, how many should have been sorted and were not, how many reached a person who was never meant to be involved, how many gave up, how long it ran and what it cost — plus who has to act and what happens if nobody does. |
+| 3 · Why it happened | The cause in plain words, the configuration change behind it, how sure we are, and what we ruled out. |
+| 4 · The evidence | The baseline named and justified first, then observed against baseline, then coverage stated out loud, then the measurements and the full derivation. |
+| 5 · The fix | What is being asked of you, the predicted move, the risk if the diagnosis is wrong, what would stop us shipping, and the replay proof — or a plain statement that there is none. |
+| 6 · Decide | APPROVE / REJECT / DEFER, written back into the report. |
+
+A fault whose cause could not be classified skips slides 3 and 5 and asks you for your own reading
+instead; that goes into the report as the decision's reason.
+
+**Every proportion is drawn rather than spelled** — shares, coverage, confidence and
+observed-against-baseline are all bars. Clicking any bar or figure opens its definition: what it
+is, how we know it (measured, derived or judged), what share of traffic can produce it, what is
+excluded, its calibration if it is judged, and how it was computed.
+
+Navigation: click a row to open it, then `←` / `→` or the Back/Next buttons. The current slide is
+in the URL (`#/f/<finding_id>/3`, `#/gaps/0`), so you can deep-link straight to a slide during
+questions and browser back/forward works.
+
+**Verified in a real browser** (Chrome, 1536×751): all six slides on all three findings, the
+dismissed-lookalike and refused-question sequences, the honesty inventory, the `unknown`-cause
+fixture (`engine/out/loop-report-unknown.json` — see
+[`UNKNOWN_CAUSE_CLASS.md`](UNKNOWN_CAUSE_CLASS.md)), and an end-to-end `POST /decision` write-back
+that lands in `prescriptions[].approval` bound to the build hash. **Not verified:** the phone
+layout — the media query below 900px is written but the browser tool in this environment would not
+resize the window, so nobody has actually looked at it. Open it narrow once before relying on it.
+
+---
+
 ## File map (for reference)
 
 | Path | What |
 |------|------|
+| `run.py` | starts the engine + screen together and narrates your decisions (§0) |
 | `engine/` | the engine (stdlib Python; you don't need to edit it) |
 | `engine/cli.py` | the one entrypoint (§2) |
 | `engine/preflight.py` | read-only kit validation run automatically before §2 |
 | `engine/replay/client.py` | the opt-in verification stage (§5) |
+| `engine/narrate.py` | the plain-language layer the screen reads (templates, no model) |
 | `engine/stress_sealed.py` | the sealed-layout sweep (§6) — scores the engine on corpora shaped like day 6's |
 | `engine/out/loop-report.json` | the artifact your screen reads (git-ignored) |
+| `screen/index.html` | the Loop Desk screen (§9) — guided six-slide console, no deps |
+| `screen/serve.py` | serves the screen and handles the `POST /decision` write-back (§9) |
 | `nexus-loop-day1/kit/` | corpus, catalog, labels |
 | `nexus-loop-day1/tools/nexus-loop-kit/schema/loop-report.schema.json` | the report schema (field-by-field truth) |
 | `nexus-loop-day1/tools/nexus-loop-kit/replay/serve.py` | the replay endpoint (§5) |

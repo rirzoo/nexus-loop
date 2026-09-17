@@ -177,10 +177,15 @@ write an `approval` object back into that prescription in `loop-report.json`:
 "approval": {
   "verdict":    "accepted",          // "accepted" | "rejected" | "deferred"
   "decided_by": "operator name",
+  "confidence": "high",              // "low" | "medium" | "high"
   "reason":     "why they decided this",
   "at":         "2026-09-15T14:03:00Z"
 }
 ```
+
+`confidence` is the operator's own stated confidence in the call, kept separate from the
+detector's `cause_class` confidence on the diagnosis — "how sure was the machine" and "how sure
+was the person who signed off" are two different numbers and the screen never conflates them.
 
 A **rejection is a valid, valuable answer** — the point is a real gate, not a rubber stamp. This
 write-back is what turns the pipeline into a closed loop for scoring and for the demo.

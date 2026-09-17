@@ -989,7 +989,8 @@ function slideDecide(f){
     var box=el('div',ui[0]);
     box.appendChild(el('h3','sec',ui[1]+', '+ui[2]));
     box.appendChild(el('p','body',a.reason));
-    box.appendChild(el('p','body',a.decided_by+', '+a.at));
+    box.appendChild(el('p','body',a.decided_by+', '+a.at
+      +(a.confidence?' ('+a.confidence+' confidence)':'')));
     var hist=p.approval_history||[];
     var bound=hist.length?hist[hist.length-1].report_build:null;
     if(bound)box.appendChild(el('p','body',bound===R.report_build
@@ -1286,7 +1287,7 @@ function closeModal(){$('#overlay').innerHTML='';}
 function openDecision(f,p,verdict){
   var ov=$('#overlay');ov.innerHTML='';
   var scrim=el('div','scrim'),m=el('div','modal');
-  var state={verdict:verdict||'accepted'};
+  var state={verdict:verdict||'accepted',confidence:null};
   var inference=!!f.needs_your_inference;
   m.appendChild(el('h3',null,inference?'Record what you think is going on':'Record your decision'));
   m.appendChild(el('p','body',(p.decision&&p.decision.asking_approval_for)||''));
@@ -1298,6 +1299,16 @@ function openDecision(f,p,verdict){
     b.onclick=function(){state.verdict=pair[0];paint();};vrow.appendChild(b);
   });
   m.appendChild(vrow);
+
+  m.appendChild(el('label',null,'How sure are you'));
+  var crow=el('div','picks'),cb={};
+  [['low','Low'],['medium','Medium'],['high','High']].forEach(function(pair){
+    var b=el('button',null,pair[1]);b.type='button';cb[pair[0]]=b;
+    b.onclick=function(){state.confidence=pair[0];paint();};crow.appendChild(b);
+  });
+  m.appendChild(crow);
+  m.appendChild(el('p','body','This is your own confidence in this call, not the system’s '
+    +'confidence in its diagnosis. The two are kept apart on purpose.'));
 
   m.appendChild(el('label',null,'Your name or email'));
   var who=el('input');try{who.value=localStorage.getItem('loopdesk.who')||'';}catch(e){}
@@ -1324,6 +1335,12 @@ function openDecision(f,p,verdict){
       vb[v].style.color=on?'#fff':'var(--ink-2)';
       vb[v].style.borderColor=on?'var(--act)':'var(--hair)';
     });
+    ['low','medium','high'].forEach(function(v){
+      var on=v===state.confidence;
+      cb[v].style.background=on?'var(--act)':'rgba(255,255,255,.7)';
+      cb[v].style.color=on?'#fff':'var(--ink-2)';
+      cb[v].style.borderColor=on?'var(--act)':'var(--hair)';
+    });
     rlabel.textContent=inference?'What you think (required)':'Reason (required)';
     quick.innerHTML='';
     if(!inference)(PICKS[state.verdict]||[]).forEach(function(r){
@@ -1332,6 +1349,7 @@ function openDecision(f,p,verdict){
     });
     conf.textContent='writes to  prescriptions['+p.id+'].approval\n'
       +'verdict    '+state.verdict+'\n'
+      +'confidence '+(state.confidence||'(not set)')+'\n'
       +'change     '+p.change_type+' on '+p.target+'\n'
       +'against    build '+(R.report_build||'n/a')+'\n'
       +'checked    before anything is saved';
@@ -1341,12 +1359,13 @@ function openDecision(f,p,verdict){
   go2.onclick=function(){
     errBox.innerHTML='';
     if(!who.value.trim()){errBox.appendChild(el('div','err','Your name is needed. An unsigned decision is not a decision.'));return;}
+    if(!state.confidence){errBox.appendChild(el('div','err','Pick how sure you are. A decision with no stated confidence hides how much to trust it.'));return;}
     if(!why.value.trim()){errBox.appendChild(el('div','err','A reason is needed. A rejection with a good reason counts for as much as an approval, but a decision with no reason is not a record.'));return;}
     try{localStorage.setItem('loopdesk.who',who.value.trim());}catch(e){}
     go2.disabled=true;go2.textContent='Writing…';
     fetch('/decision',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({prescription_id:p.id,verdict:state.verdict,decided_by:who.value.trim(),
-        reason:why.value.trim(),report_build:R.report_build})})
+        confidence:state.confidence,reason:why.value.trim(),report_build:R.report_build})})
       .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})
       .then(function(res){
         go2.disabled=false;go2.textContent='Record it';

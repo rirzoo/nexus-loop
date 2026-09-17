@@ -9,11 +9,14 @@ disk on its own and an approve button that only sets client state is a mockup.
 
 The write path is deliberately narrow. It may set exactly one thing:
 
-    prescriptions[i].approval = {verdict, decided_by, reason, at}
+    prescriptions[i].approval = {verdict, decided_by, confidence, reason, at}
 
 and nothing else. Before saving it re-checks that every approval field is present and refuses to
 write if any is missing. A half-written approval (a null `at`, an empty reason) makes the judges'
 checklist claim a human decision nobody made, so it is rejected here rather than discovered later.
+`confidence` is the operator's own stated confidence in the call they just made (low/medium/high),
+not the system's diagnosis confidence — the two are recorded separately on purpose, so a reader can
+tell "how sure was the detector" from "how sure was the person who signed off" at a glance.
 (The engine is stdlib-only and asserts its own report link integrity at build time, so there is no
 separate validator to import here.)
 
@@ -45,6 +48,7 @@ def contract_problems(_):
     return []
 
 VERDICTS = ("accepted", "rejected", "deferred")
+CONFIDENCE_LEVELS = ("low", "medium", "high")
 LOCK = threading.Lock()
 
 
@@ -68,18 +72,23 @@ class Store:
             json.dump(rep, fh, indent=1)
         os.replace(tmp, self.path)                 # atomic: never leave a half-written deliverable
 
-    def decide(self, pid, verdict, decided_by, reason, seen_build=None):
+    def decide(self, pid, verdict, decided_by, reason, confidence, seen_build=None):
         """Record one decision. Returns (ok, payload)."""
         if verdict not in VERDICTS:
             return False, {"error": "verdict must be one of %s" % (", ".join(VERDICTS))}
-        # All four fields must be non-empty strings or the contract check fails and the report
-        # stops being a valid deliverable. Enforced here so the UI can never produce that state.
+        # All five fields must be non-empty (confidence from a fixed set) or the contract check
+        # fails and the report stops being a valid deliverable. Enforced here so the UI can never
+        # produce that state.
         decided_by = (decided_by or "").strip()
         reason = (reason or "").strip()
+        confidence = (confidence or "").strip().lower()
         if not decided_by:
             return False, {"error": "decided_by is required - an unsigned decision is not a decision"}
         if not reason:
             return False, {"error": "a reason is required, on an approval as much as on a rejection"}
+        if confidence not in CONFIDENCE_LEVELS:
+            return False, {"error": "confidence must be one of %s - how sure the operator is, "
+                                     "not how sure the detector was" % (", ".join(CONFIDENCE_LEVELS))}
 
         with LOCK:
             rep = self.load()
@@ -97,7 +106,8 @@ class Store:
                 return False, {"error": "no prescription %r in this report" % pid}
 
             before = json.loads(json.dumps(target.get("approval"))) if target.get("approval") else None
-            entry = {"verdict": verdict, "decided_by": decided_by, "reason": reason, "at": now_iso()}
+            entry = {"verdict": verdict, "decided_by": decided_by, "confidence": confidence,
+                     "reason": reason, "at": now_iso()}
             # Bind the decision to the evidence it was made against.
             if rep.get("report_build"):
                 entry["report_build"] = rep["report_build"]
@@ -105,7 +115,8 @@ class Store:
             # decision appends - the original is never overwritten.
             hist = target.setdefault("approval_history", [])
             hist.append(entry)
-            target["approval"] = {k: entry[k] for k in ("verdict", "decided_by", "reason", "at")}
+            target["approval"] = {k: entry[k] for k in
+                                  ("verdict", "decided_by", "confidence", "reason", "at")}
 
             errs = schema_errors(rep)
             probs = contract_problems(rep)
@@ -163,7 +174,7 @@ def make_handler(store, page):
                 return self._send(400, {"error": "bad_json", "detail": str(e)})
             ok, payload = store.decide(body.get("prescription_id"), body.get("verdict"),
                                        body.get("decided_by"), body.get("reason"),
-                                       body.get("report_build"))
+                                       body.get("confidence"), body.get("report_build"))
             return self._send(200 if ok else 400, payload)
 
         def log_message(self, fmt, *args):

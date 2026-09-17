@@ -143,7 +143,8 @@ def describe(pid, before, after):
         print("    first decision on this fix")
     else:
         print("    was %s by %s" % (before.get("verdict"), before.get("decided_by")))
-    print("    now %s by %s" % (after.get("verdict"), after.get("decided_by")))
+    print("    now %s by %s (confidence: %s)"
+          % (after.get("verdict"), after.get("decided_by"), after.get("confidence")))
     print("    reason: %s" % after.get("reason"))
     print("    at: %s" % after.get("at"))
     if after.get("_history", 0) > 1:

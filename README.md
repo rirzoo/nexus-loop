@@ -1,36 +1,42 @@
 # Nexus Loop
 
-**Team Shekhar · IIT Patna** — built for Yellow.ai TechQuest, "Building an Autonomous Improvement
-Loop for AI Agent Deployments." This build is not the version the team ultimately submitted; it's
-kept here as the fuller engineering exploration of the problem.
+**Team Shekhar · IIT Patna**, built for Yellow.ai TechQuest, "Building an Autonomous Improvement
+Loop for AI Agent Deployments." This particular build isn't the version the team ended up
+submitting; it's kept here as the fuller engineering pass at the problem.
 
-Nexus Loop reads eight weeks of an AI-agent deployment's logs it has never seen, mines the
-deployment's *own* definition of "good" from its own traffic, finds the regressions hiding in it,
-explains why they happened and who has to act, proposes a fix, verifies the fix for real against a
-replay endpoint, and hands the final call to a human through an operator screen. Nothing in the
-detection code knows in advance which day, tenant, or fault type it's looking for — it finds
-regressions by comparing a deployment against itself, which is what let it hold a perfect
-55.0 / 55 machine score across 80 independently regenerated sealed-shaped corpora, up from a 35.4
-mean on the first version that worked at all.
+Give it eight weeks of logs from an AI agent deployment it has never seen, and Nexus Loop hands an
+operator a screen with three things: what broke, why it broke, and a fix to approve or reject.
+Nothing shows up without evidence attached, and nothing ships without a person clicking a button.
+That's the product: a decision someone can act on Monday morning, not a dashboard they have to
+interpret.
+
+Underneath that screen, the system mines each deployment's own definition of "good" from its own
+traffic, finds the regressions hiding against that standard, works out the cause, proposes a fix,
+and verifies the fix for real against a replay endpoint before it ever reaches a human for
+approval. None of the detection logic knows in advance which day, tenant, or fault type to expect,
+so it compares a deployment against itself rather than against a hardcoded pattern. That's what
+let it hold a perfect 55.0/55 machine score across 80 independently regenerated corpora shaped
+like the sealed exam, up from a mean of 35.4 on the first version that actually worked.
 
 A few things worth reading closely if you're skimming:
 
-- **It refuses to bluff.** Every reported number carries fidelity and coverage; anything the logs
-  can't support comes back as a structured refusal (`NOT_MEASURABLE`, `REQUIRES_NEW_JUDGE`, ...)
-  instead of a guess. The three planted decoys in the practice corpus are dismissed by principle
-  (not sustained, not localized, not a real outcome shift) rather than by pattern-matching them.
-- **It closes the loop, not just detects.** Detect → Diagnose → Prescribe → Verify → Self-assess:
-  a fix is proposed, actually replayed against a live endpoint, and the predicted-vs-observed
-  delta is scored — the loop reports on its own track record instead of just its findings.
-- **A human still approves every fix.** The operator screen (Loop Desk) binds each APPROVE/REJECT
-  decision to the exact report hash it was shown, so the write-back is auditable, not implicit.
-- **Two rules it can't break by construction** (not just convention — enforced by
-  `engine/selfcheck.py`): never ask a model for a fact the logs already record, and never touch
-  the metric definitions or the judge to make a number look better.
-- **Zero dependencies.** `engine/` and `screen/` are stdlib Python only, so the same code runs
-  untouched on a sealed corpus it's never seen.
+- **The screen is the product.** A guided walk through one finding at a time, evidence and plain
+  language before any number, and an APPROVE/REJECT that writes back into the report bound to its
+  exact hash, so a decision can never end up attached to evidence nobody actually saw.
+- **Every number carries its own honesty.** Fidelity, coverage, and, where it's judged, a
+  calibration score. Anything the logs can't support comes back as a structured refusal instead of
+  a guess, and the three decoys planted in the practice corpus get dismissed by reasoning about
+  them, not by pattern-matching where they were planted.
+- **The loop actually closes.** Detect, diagnose, prescribe, verify, self-assess: a proposed fix
+  gets replayed against a live endpoint and the predicted delta gets checked against what actually
+  happened, so the system keeps a track record instead of just a list of findings.
+- **Two rules it can't break by construction**, not just by convention, checked mechanically by
+  `engine/selfcheck.py`: never ask a model for a fact the logs already record, and never touch a
+  metric definition or the judge to make a number look better.
+- **No dependencies.** `engine/` and `screen/` are plain Python standard library, so the same code
+  that runs on the practice corpus runs untouched on a sealed one it's never seen.
 
-The full write-up, with figures from the running screen, is [`Final Report/Report.pdf`](Final%20Report/Report.pdf).
+The full write-up, with figures from the running screen, is [`Report.pdf`](Report.pdf).
 
 ## See it work in one command
 
@@ -40,8 +46,8 @@ python3 run.py
 
 This builds `loop-report.json` if it doesn't exist yet, serves the operator screen at
 `http://127.0.0.1:8080`, opens it in a browser, and then prints every decision you record on
-screen — what changed in the file and what it did to the scorer's checklist — so the write-back
-is visible instead of something you have to take on trust.
+screen: what changed in the file, and what it did to the scorer's checklist. That way the
+write-back is visible instead of something you have to take on trust.
 
 Requires only Python 3.9+ and the standard library. No installs, no network calls except the
 optional replay-verification stage.
@@ -51,11 +57,11 @@ optional replay-verification stage.
 | Path | What it is |
 |---|---|
 | `engine/` | The analysis core: ingestion, metrics, standard-mining, detection, diagnosis, prescription, replay verification, report assembly. Stdlib Python only. |
-| `screen/` | Loop Desk — the operator screen. One HTML file (`index.html`) plus a small write-back server (`serve.py`). No build step, no dependencies. |
+| `screen/` | Loop Desk, the operator screen. One HTML file (`index.html`) plus a small write-back server (`serve.py`). No build step, no dependencies. |
 | `run.py` | Starts the engine and the screen together and narrates every decision you record. |
 | `nexus-loop-day1/` | The organisers' kit: corpus, catalog, scoring script (`tools/nexus-loop-kit/score.py`), ground truth, schema, and the replay endpoint. |
-| `Final Report/` | The compiled write-up (`Report.pdf`) and its LaTeX source. |
-| `SETUP.md` | The full runbook — read this if `python3 run.py` isn't enough. |
+| `Report.pdf` | The compiled write-up. |
+| `SETUP.md` | The full runbook, for when `python3 run.py` isn't enough. |
 
 ## Running the pieces individually
 
@@ -79,8 +85,8 @@ python3 -m unittest discover -s engine -p "test_*.py"
 python3 engine/stress_sealed.py --n 20
 ```
 
-Optional: verify a proposed fix for real against the replay endpoint (needs two terminals) —
-see **§5** of `SETUP.md`.
+Optional: verify a proposed fix for real against the replay endpoint. It needs two terminals; see
+**§5** of `SETUP.md`.
 
 ## The two rules the system cannot break
 
@@ -90,12 +96,12 @@ see **§5** of `SETUP.md`.
 2. **Never change a metric definition, judge version, or the reviewed "good" set to make a number
    look better.** The system may propose changes to the agent, never to the yardstick.
 
-Both are enforced mechanically, not just by convention — see `engine/selfcheck.py` and the
-Assumptions & Transparency section of the report.
+Both are enforced mechanically, not just by convention. See `engine/selfcheck.py` and the
+Assumptions and Transparency section of the write-up.
 
 ## Where to go next
 
 - New to the project? Start with `SETUP.md`.
-- Want the full technical write-up? `Final Report/Report.pdf`.
+- Want the full technical write-up? `Report.pdf`.
 - Want to know what happens on a corpus with a fault the engine can't classify?
   `python3 run.py --unknown`.

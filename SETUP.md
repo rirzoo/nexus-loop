@@ -1,12 +1,12 @@
-# SETUP — running the engine (for the product / screen team)
+# SETUP: running the engine
 
-This is the runbook for the **engineering half**. The engine reads a deployment's logs and emits
-one file — **`loop-report.json`** — which is the *only* interface between the engine and your
-screen. You do not need to read or change any engine code; you run one command and build your
-screen against the JSON it produces.
+This is the runbook for the engine side of the project. The engine reads a deployment's logs and
+emits one file, `loop-report.json`, which is the only interface between the engine and the screen.
+You don't need to read or change any engine code; you run one command and build a screen against
+the JSON it produces.
 
-If you only remember one thing: **run the engine → get `loop-report.json` → render it → write the
-human's APPROVE/REJECT back into it.** That's the whole contract.
+If you only remember one thing: run the engine → get `loop-report.json` → render it → write the
+human's APPROVE/REJECT back into it. That's the whole contract.
 
 ---
 
@@ -17,7 +17,7 @@ python3 run.py
 ```
 
 Builds the report if it is missing, serves the screen at `http://127.0.0.1:8080`, opens it,
-and then watches the report file. Every approval, rejection or deferral you record on screen
+and then watches the report file. Every approval, rejection, or deferral you record on screen
 is printed in the terminal with what changed and what it did to the scorer's decision count,
 so you can see the write-back rather than take it on trust.
 
@@ -29,12 +29,12 @@ so you can see the write-back rather than take it on trust.
 | `--port N` | serve somewhere other than 8080 |
 | `--no-open` | do not open a browser |
 
-It does not rebuild by default, so decisions survive a restart. They do not survive a
-rebuild, and that is deliberate: an approval is bound to the report's content hash, so it
-is a decision about the exact evidence someone read. Regenerate the report and the hash
-changes, which is why the screen refuses a decision made against evidence that has moved.
-Try it: leave the page open, run `python3 -m engine.cli …` in another terminal, then approve
-something. The write is refused and the page tells you to reload.
+It does not rebuild by default, so decisions survive a restart. They do not survive a rebuild,
+and that is deliberate: an approval is bound to the report's content hash, so it is a decision
+about the exact evidence someone read. Regenerate the report and the hash changes, which is why
+the screen refuses a decision made against evidence that has moved. Try it: leave the page open,
+run `python3 -m engine.cli …` in another terminal, then approve something. The write is refused
+and the page tells you to reload.
 
 The rest of this document is the manual version of the same thing.
 
@@ -42,12 +42,12 @@ The rest of this document is the manual version of the same thing.
 
 ## 1. Prerequisites
 
-- **Python 3** (developed on 3.13; anything 3.9+ is fine). **No pip installs, no dependencies** —
-  the engine is stdlib-only, on purpose, so it runs untouched on the sealed day-6 corpus.
-- The practice **kit** must be present at `nexus-loop-day1/kit/` (corpus + catalog + labels). It
-  ships with the repo but is git-ignored, so if you did a fresh clone that dropped it, get the kit
-  from whoever has it before running.
-- Run every command **from the repo root** (`Yellow.AI-1/`). Paths below assume that.
+- Python 3. Developed on 3.13, but anything 3.9 or later works. No pip installs and no
+  dependencies: the engine is stdlib only, on purpose, so it runs untouched on the sealed day-6
+  corpus.
+- The practice kit ships with the repo at `nexus-loop-day1/kit/` (corpus, catalog, labels), so a
+  fresh clone already has everything it needs.
+- Run every command from the repo root (`Yellow.AI-1/`). Paths below assume that.
 
 Quick sanity check:
 
@@ -58,7 +58,7 @@ ls nexus-loop-day1/kit            # should list corpus/, catalog.json, labels...
 
 ---
 
-## 2. Quick start — produce `loop-report.json`
+## 2. Quick start: produce `loop-report.json`
 
 One command. Network-free, deterministic, ~seconds on the full corpus:
 
@@ -72,17 +72,18 @@ You'll see:
 wrote engine/out/loop-report.json  (12 metrics, 6 findings, 6 diagnoses, 3 gaps, 2 standard)
 ```
 
-That file is your input. `engine/out/` is git-ignored, so treat it as a build artifact — re-run
+That file is your input. `engine/out/` is git-ignored, so treat it as a build artifact. Re-run
 the command any time to regenerate it.
 
-**Preflight (automatic).** Before it reads the corpus, the engine validates the kit and prints to
-**stderr**. On a clean kit you'll see nothing. If a column or file is off, you'll see either:
+Preflight runs automatically: before it reads the corpus, the engine validates the kit and prints
+to `stderr`. On a clean kit you'll see nothing. If a column or file is off, you'll see one of two
+things:
 
-- `preflight WARNING: …` — the engine degrades around it and still writes a valid report (e.g. a
-  missing `config_timeline` → findings still emit but attributions are null). Each warning is also
-  recorded in the report's `system_notes` so it's visible downstream.
-- `preflight FATAL — cannot produce a valid report:` followed by the exact missing file/column, and a
-  non-zero exit. Nothing is written. Fix the kit and re-run.
+- `preflight WARNING: …`: the engine degrades around it and still writes a valid report. For
+  example, a missing `config_timeline` means findings still emit, but attributions come back
+  null. Each warning is also recorded in the report's `system_notes`, so it's visible downstream.
+- `preflight FATAL — cannot produce a valid report:` followed by the exact missing file or column,
+  and a non-zero exit. Nothing is written. Fix the kit and re-run.
 
 Flags you may want:
 
@@ -94,12 +95,13 @@ Flags you may want:
 
 ---
 
-## 3. What's inside `loop-report.json` (what your screen renders)
+## 3. What's inside `loop-report.json` (what a screen renders)
 
-Top-level sections (the engine asserts internal link integrity on assembly — unique finding ids,
-every diagnosis/prescription linked; consumed cleanly by the organisers' `score.py`):
+Top-level sections. The engine asserts internal link integrity on assembly, unique finding ids,
+every diagnosis and prescription linked, and the result is consumed cleanly by the organisers'
+`score.py`:
 
-| Section | What it is | Your screen uses it for |
+| Section | What it is | A screen uses it for |
 |---------|-----------|-------------------------|
 | `metrics` | canonical numbers, each with `fidelity` + `coverage` (+ `calibration` if judged) | "every number carries its definition" |
 | `findings` | what broke — each real one carries `impact` (with a `derivation`), `audience`, `if_nothing_changes`, `evidence`, `window` | the main card a stranger reads |
@@ -113,7 +115,7 @@ every diagnosis/prescription linked; consumed cleanly by the organisers' `score.
 | `whats_real` | `{key, claim, status, why}` per claim — what is real, what is templated, what has not been run | the honesty panel |
 
 Every finding with `is_regression: true` is guaranteed to have `impact`, `audience`, and
-`if_nothing_changes` — so a card never shows a number without a decision attached.
+`if_nothing_changes`, so a card never shows a number without a decision attached.
 
 ### The plain-language fields
 
@@ -131,29 +133,30 @@ On every finding:
 | `what_happened` | two to four sentences explaining it without jargon |
 | `cause_plain` | the cause and the change behind it, or a plain statement that none lines up |
 | `status_short` / `status_plain` | how long it ran and whether it is traced to anything |
-| `baseline` + `baseline_plain` | `{axis: "peer" \| "own_past", value, source, why}` — which yardstick and **why that one** |
+| `baseline` + `baseline_plain` | `{axis: "peer" \| "own_past", value, source, why}` — which yardstick and why that one |
 | `rank` | 1..n over the regressions, by severity then size. Order your list by this |
 | `needs_your_inference` | `true` when the cause class is `unknown`. Skip the cause and the fix; ask the operator instead |
 | `effect_plain` | ordered `[{key, headline, detail, field}]`, the PS's impact list |
 | `outcome_band` | `{total, segments: [{key, label, count}], caption}` — what became of those conversations |
 | `dismissed_plain` | on `is_regression: false` only: why it is not a fault |
 
-Two of those need care, because they are the ones that differ per finding:
+Two fields need extra care, since they differ per finding. `effect_plain` only carries the blocks
+whose data exists: `impact.downstream` differs by detector, so loop the list and render what's in
+it rather than indexing by position or assuming a fixed set (`field` is the dotted path, if you
+want to attach your own click-through). `outcome_band` is absent when the fault never moved an
+outcome: a cost-and-turns regression resolves at the same rate it always did, so there's no split
+to draw, and drawing one would imply harm that isn't there. Fall back to observed against baseline
+in that case.
 
-- **`effect_plain` only carries the blocks whose data exists.** `impact.downstream` differs by
-  detector, so loop the list and render what is in it; do not index by position or assume a
-  fixed set. `field` is the dotted path if you want to attach your own click-through.
-- **`outcome_band` is absent when the fault never moved an outcome.** A cost-and-turns
-  regression resolves at the same rate it always did, so there is no split to draw, and drawing
-  one would imply harm that is not there. Fall back to observed against baseline.
-
-Also: `predicted_plain` on each prescription, and `plain: {asked, refused_because,
+Also present: `predicted_plain` on each prescription, and `plain: {asked, refused_because,
 what_would_have_to_exist}` on each gap.
 
-One `cause_class` needs its own handling: **`unknown`** — a confirmed regression the engine could not
+One `cause_class` needs its own handling: `unknown`, a confirmed regression the engine couldn't
 classify, whose prescription proposes no fix (`change_type: "no_action"`). It never fires on the
-practice corpus but can on the sealed one. See **[`UNKNOWN_CAUSE_CLASS.md`](UNKNOWN_CAUSE_CLASS.md)**
-for what to render, the gotchas, and how to generate a fixture report containing one.
+practice corpus but can on the sealed one. It renders as a normal finding card, but since there's
+no fix to approve, the operator is being asked to investigate rather than to ship. If your UI maps
+cause class to a label, icon, or fix description, give this value its own branch or a sane
+default. Run `python3 run.py --unknown` to build and serve a fixture report containing one.
 
 The **prescription `decision`** block (always present) is exactly what the operator approves:
 
@@ -167,10 +170,10 @@ The **prescription `decision`** block (always present) is exactly what the opera
 
 ---
 
-## 4. The APPROVE / REJECT write-back (your half of the loop)
+## 4. The APPROVE / REJECT write-back (the other half of the loop)
 
-The engine deliberately emits prescriptions **without** an `approval` — that is a *human* decision
-your screen captures. It must **not** be fabricated by code. When the operator hits APPROVE/REJECT,
+The engine deliberately emits prescriptions without an `approval`. That's a human decision the
+screen captures, and it must not be fabricated by code. When the operator hits APPROVE/REJECT,
 write an `approval` object back into that prescription in `loop-report.json`:
 
 ```json
@@ -184,28 +187,28 @@ write an `approval` object back into that prescription in `loop-report.json`:
 ```
 
 `confidence` is the operator's own stated confidence in the call, kept separate from the
-detector's `cause_class` confidence on the diagnosis — "how sure was the machine" and "how sure
-was the person who signed off" are two different numbers and the screen never conflates them.
+detector's `cause_class` confidence on the diagnosis. "How sure was the machine" and "how sure
+was the person who signed off" are two different numbers, and the screen never conflates them.
 
-A **rejection is a valid, valuable answer** — the point is a real gate, not a rubber stamp. This
-write-back is what turns the pipeline into a closed loop for scoring and for the demo.
+A rejection is a valid, valuable answer. The point is a real gate, not a rubber stamp, and this
+write-back is what turns the pipeline into a closed loop, both for scoring and for the demo.
 
 ---
 
 ## 5. (Optional) Verify a fix on the replay endpoint
 
-This populates `verifications` + `self_assessment` with real before/after evidence. It needs the
-organisers' replay endpoint running, and it is **opt-in** — the sealed run scores full marks
+This populates `verifications` and `self_assessment` with real before/after evidence. It needs
+the organisers' replay endpoint running, and it is opt-in. The sealed run scores full marks
 without it, so only do this for the demo's "we proved it works" beat.
 
-**Terminal A — start the endpoint** (deterministic, non-LLM, 40-run budget):
+**Terminal A, start the endpoint** (deterministic, non-LLM, 40-run budget):
 
 ```bash
 python3 nexus-loop-day1/tools/nexus-loop-kit/replay/serve.py --kit nexus-loop-day1/kit --port 8719
 # check it's up:  curl -s http://127.0.0.1:8719/health   ->  {"ok": true, ...}
 ```
 
-**Terminal B — run verification against the report you built in §2:**
+**Terminal B, run verification against the report you built in §2:**
 
 ```bash
 python3 -m engine.replay.client \
@@ -214,16 +217,16 @@ python3 -m engine.replay.client \
   --team solo --kit nexus-loop-day1/kit
 ```
 
-It POSTs each real prescription, records the `rp_…` outcome + prediction error back into the
+It posts each real prescription, records the `rp_…` outcome and prediction error back into the
 report, and recomputes the return arrow. Add `--dry-run` to print the request bodies without
-calling anything. **It is degradable:** if the endpoint is down it skips cleanly, keeps the
-predicted deltas, and never crashes the report.
+calling anything. It's degradable: if the endpoint is down, it skips cleanly, keeps the predicted
+deltas, and never crashes the report.
 
 ---
 
 ## 6. (Optional) Confirm the score yourself
 
-Neither of these is required to run the engine — they're for confidence.
+Neither of these is required to run the engine. They're here for confidence.
 
 ```bash
 # organisers' scorer (needs the practice answer key; not available on the sealed corpus)
@@ -237,38 +240,40 @@ python3 engine/selfcheck.py --report engine/out/loop-report.json
 
 Both currently report **55.0 / 55** on the full variant-A corpus.
 
-The variant-A score is necessary but not sufficient — the practice corpus plants its faults at the
-very end of the eight weeks, and the sealed one does not. The number that actually predicts day 6:
+The variant-A score is necessary but not sufficient. The practice corpus plants its faults at the
+very end of the eight weeks, and the sealed one does not, so the number that actually predicts
+day 6 comes from here:
 
 ```bash
 python3 engine/stress_sealed.py --n 80
 ```
 
-This builds corpora the way the organisers build the sealed one (from a passphrase, in memory — no
-files written), runs the engine untouched on each, and scores them with the organisers' `score.py`.
-It currently reports **mean 55.00 / 55, min 55.00** over 80 layouts. Run it with a fresh `--prefix`
-before the freeze; it exits non-zero if any layout scores below 55.
+This builds corpora the way the organisers build the sealed one (from a passphrase, generated in
+memory, with no files written), runs the engine untouched on each, and scores them with the
+organisers' `score.py`. It currently reports **mean 55.00 / 55, min 55.00** over 80 layouts. Run
+it with a fresh `--prefix` before the freeze; it exits non-zero if any layout scores below 55.
 
 ---
 
 ## 7. Two rules the product side must not break
 
-These are the challenge's disqualifying non-negotiables. Nothing on the screen should violate them:
+These are the challenge's disqualifying non-negotiables. Nothing on the screen should violate
+them:
 
-1. **No model/LLM for a fact the logs already record.** Every number in the report is computed
-   from the corpus. Don't add a step that asks an LLM to re-derive or "improve" a number for
-   display. (Models are only ever for *meaning*, e.g. clustering free text — and this engine uses
-   none.)
-2. **Never change a metric definition, the judge, or the "good" set to make a number look better.**
-   Render the numbers as they are. If something reads badly, that's a finding, not a bug to tune
-   away. The one thing the screen *does* write back is the human `approval` — that's a decision,
+1. No model or LLM for a fact the logs already record. Every number in the report is computed
+   from the corpus, so don't add a step that asks an LLM to re-derive or "improve" a number for
+   display. (Models are only ever used for meaning, such as clustering free text, and this engine
+   uses none.)
+2. Never change a metric definition, the judge, or the "good" set to make a number look better.
+   Render the numbers as they are: if something reads badly, that's a finding, not a bug to tune
+   away. The one thing the screen does write back is the human `approval`, and that's a decision,
    not a metric.
 
 ---
 
 ## 8. Sealed-run reminder (day 6)
 
-At the freeze the system must run **untouched, one command**, on a corpus nobody has seen:
+At the freeze, the system has to run untouched, in one command, on a corpus nobody has seen:
 
 ```bash
 python3 -m engine.cli --kit <sealed-kit-path> --team solo --out loop-report.json
@@ -277,24 +282,25 @@ python3 -m engine.cli --kit <sealed-kit-path> --team solo --out loop-report.json
 No edits to the produced report are allowed. The replay stage (§5) is separate and opt-in. Point
 your screen at whatever `--out` path you used and you're done.
 
-If the sealed kit has a schema quirk, the preflight (above) tells you immediately: a **FATAL** line
-names the exact missing file/column so it can be fixed before the clock runs out, and any **WARNING**
-means the engine degraded around it and still produced a valid report (check `system_notes`).
+If the sealed kit has a schema quirk, the preflight (above) tells you immediately: a `FATAL` line
+names the exact missing file or column so it can be fixed before the clock runs out, and any
+`WARNING` means the engine degraded around it and still produced a valid report (check
+`system_notes`).
 
-The engine keys on **no** absolute day, tenant, fault taxonomy, or position of a fault within the eight
-weeks. The evidence for that last one is the sweep in §6: 80 corpora generated from the same
-`sealed_schedule` function the organisers use, all scoring 55.0 / 55 with the engine untouched. (It
-matters: the practice corpus plants its faults in the last fortnight, the sealed one usually plants
-them in the first, and detectors that only recognise a permanent step score ~35 on the latter.) The
-engine also holds as a cohort thins to roughly a third of its practice volume. So the same command runs
-untouched on the sealed corpus.
+The engine keys on no absolute day, tenant, fault taxonomy, or position of a fault within the
+eight weeks. The evidence for that last claim is the sweep in §6: 80 corpora generated from the
+same `sealed_schedule` function the organisers use, all scoring 55.0 / 55 with the engine
+untouched. It matters because the practice corpus plants its faults in the last fortnight, the
+sealed one usually plants them in the first, and detectors that only recognise a permanent step
+score around 35 on the latter. The engine also holds up as a cohort thins to roughly a third of
+its practice volume, so the same command runs untouched on the sealed corpus.
 
 ---
 
-## 9. The screen — Loop Desk
+## 9. The screen: Loop Desk
 
 A working screen already ships at `screen/index.html`, served by `screen/serve.py`. It reads
-whatever `--report` you point it at and is the write-back target for §4 — you do not need to
+whatever `--report` you point it at and is the write-back target for §4, so you don't need to
 build a screen from scratch to demo the loop end to end.
 
 ```bash
@@ -302,16 +308,16 @@ python3 screen/serve.py --report engine/out/loop-report.json
 # open http://127.0.0.1:8080
 ```
 
-`--report`/`--page`/`--port`/`--host` are all overridable (defaults above). The server serves the
-one HTML file (no deps, no build) and exposes `GET /report` + `POST /decision`, which is the only
-thing that ever writes into the report — `screen/index.html`'s data layer and this write path are
-untouched by the redesign below.
+`--report`, `--page`, `--port`, and `--host` are all overridable (defaults above). The server
+serves the one HTML file (no dependencies, no build step) and exposes `GET /report` and
+`POST /decision`, which is the only thing that ever writes into the report. `screen/index.html`'s
+data layer and this write path are untouched by the redesign below.
 
-**Layout.** Two panes. The left is the ledger: a plain-language summary of the whole run with no
-figures in it, then "Needs you" (one row per regression, ordered by severity, each carrying a
-small band of what became of those conversations so you can rank the faults by shape before
-reading a single number), then a quieter "For context" list — the lookalikes we set aside, the
-questions we refused, our own hit rate, and what this system really does.
+The layout has two panes. The left is the ledger: a plain-language summary of the whole run with
+no figures in it, then "Needs you" (one row per regression, ordered by severity, each carrying a
+small band of what became of those conversations, so you can rank the faults by shape before
+reading a single number), then a quieter "For context" list: the lookalikes we set aside, the
+questions we refused, our own hit rate, and what this system actually does.
 
 The right pane is a six-slide walk through one finding, taken at the reader's pace:
 
@@ -327,22 +333,22 @@ The right pane is a six-slide walk through one finding, taken at the reader's pa
 A fault whose cause could not be classified skips slides 3 and 5 and asks you for your own reading
 instead; that goes into the report as the decision's reason.
 
-**Every proportion is drawn rather than spelled** — shares, coverage, confidence and
+Every proportion is drawn rather than spelled out: shares, coverage, confidence, and
 observed-against-baseline are all bars. Clicking any bar or figure opens its definition: what it
-is, how we know it (measured, derived or judged), what share of traffic can produce it, what is
-excluded, its calibration if it is judged, and how it was computed.
+is, how we know it (measured, derived, or judged), what share of traffic can produce it, what's
+excluded, its calibration if it's judged, and how it was computed.
 
 Navigation: click a row to open it, then `←` / `→` or the Back/Next buttons. The current slide is
 in the URL (`#/f/<finding_id>/3`, `#/gaps/0`), so you can deep-link straight to a slide during
 questions and browser back/forward works.
 
-**Verified in a real browser** (Chrome, 1536×751): all six slides on all three findings, the
+Verified in a real browser (Chrome, 1536×751): all six slides on all three findings, the
 dismissed-lookalike and refused-question sequences, the honesty inventory, the `unknown`-cause
-fixture (`engine/out/loop-report-unknown.json` — see
-[`UNKNOWN_CAUSE_CLASS.md`](UNKNOWN_CAUSE_CLASS.md)), and an end-to-end `POST /decision` write-back
-that lands in `prescriptions[].approval` bound to the build hash. **Not verified:** the phone
-layout — the media query below 900px is written but the browser tool in this environment would not
-resize the window, so nobody has actually looked at it. Open it narrow once before relying on it.
+fixture (`engine/out/loop-report-unknown.json`, built by `python3 run.py --unknown`), and an
+end-to-end `POST /decision` write-back that lands in `prescriptions[].approval` bound to the
+build hash. Not verified: the phone layout. The media query below 900px is written, but the
+browser tool in this environment wouldn't resize the window, so nobody has actually looked at it.
+Open it narrow once before relying on it.
 
 ---
 
@@ -357,12 +363,10 @@ resize the window, so nobody has actually looked at it. Open it narrow once befo
 | `engine/replay/client.py` | the opt-in verification stage (§5) |
 | `engine/narrate.py` | the plain-language layer the screen reads (templates, no model) |
 | `engine/stress_sealed.py` | the sealed-layout sweep (§6) — scores the engine on corpora shaped like day 6's |
-| `engine/out/loop-report.json` | the artifact your screen reads (git-ignored) |
+| `engine/out/loop-report.json` | the artifact the screen reads (git-ignored) |
 | `screen/index.html` | the Loop Desk screen (§9) — guided six-slide console, no deps |
 | `screen/serve.py` | serves the screen and handles the `POST /decision` write-back (§9) |
 | `nexus-loop-day1/kit/` | corpus, catalog, labels |
 | `nexus-loop-day1/tools/nexus-loop-kit/schema/loop-report.schema.json` | the report schema (field-by-field truth) |
 | `nexus-loop-day1/tools/nexus-loop-kit/replay/serve.py` | the replay endpoint (§5) |
 | `nexus-loop-day1/tools/nexus-loop-kit/score.py` | the organisers' scorer (§6) |
-| `UNKNOWN_CAUSE_CLASS.md` | the `unknown` cause class — what the screen must handle (§3) |
-| `REPORT.md` | architecture + what's real/stubbed + challenges (source for the write-up & demo) |

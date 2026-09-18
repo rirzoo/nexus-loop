@@ -1,8 +1,0 @@
-__pycache__/
-*.pyc
-engine/out/
-.gitignore
-
-# provided docs/spec kept local — only REPORT.md and the PS pdf are tracked
-CLAUDE.md
-Docs/ 

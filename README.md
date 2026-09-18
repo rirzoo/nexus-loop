@@ -1,7 +1,7 @@
 # Nexus Loop
 
-**Team Shekhar · IIT Patna**, built for Yellow.ai TechQuest, "Building an Autonomous Improvement
-Loop for AI Agent Deployments." This particular build isn't the version the team ended up
+Built for Yellow.ai TechQuest (IIT Patna) "Building an Autonomous Improvement
+Loop for AI Agent Deployments." This particular build isn't the version I ended up
 submitting; it's kept here as the fuller engineering pass at the problem.
 
 Give it eight weeks of logs from an AI agent deployment it has never seen, and Nexus Loop hands an

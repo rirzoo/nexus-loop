@@ -1,13 +1,34 @@
 # Nexus Loop
 
-**Team Shekhar · IIT Patna** — Yellow.ai TechQuest, "Building an Autonomous Improvement Loop for
-AI Agent Deployments."
+**Team Shekhar · IIT Patna** — built for Yellow.ai TechQuest, "Building an Autonomous Improvement
+Loop for AI Agent Deployments." This build is not the version the team ultimately submitted; it's
+kept here as the fuller engineering exploration of the problem.
 
 Nexus Loop reads eight weeks of an AI-agent deployment's logs it has never seen, mines the
-deployment's own definition of "good," finds the regressions hiding in it, explains why they
-happened and who has to act, proposes a fix, verifies the fix on a replay endpoint, and hands the
-final call to a human through an operator screen. On the practice corpus it scores 55.0 / 55
-machine points and holds that score across 80 independently generated sealed-shaped corpora.
+deployment's *own* definition of "good" from its own traffic, finds the regressions hiding in it,
+explains why they happened and who has to act, proposes a fix, verifies the fix for real against a
+replay endpoint, and hands the final call to a human through an operator screen. Nothing in the
+detection code knows in advance which day, tenant, or fault type it's looking for — it finds
+regressions by comparing a deployment against itself, which is what let it hold a perfect
+55.0 / 55 machine score across 80 independently regenerated sealed-shaped corpora, up from a 35.4
+mean on the first version that worked at all.
+
+A few things worth reading closely if you're skimming:
+
+- **It refuses to bluff.** Every reported number carries fidelity and coverage; anything the logs
+  can't support comes back as a structured refusal (`NOT_MEASURABLE`, `REQUIRES_NEW_JUDGE`, ...)
+  instead of a guess. The three planted decoys in the practice corpus are dismissed by principle
+  (not sustained, not localized, not a real outcome shift) rather than by pattern-matching them.
+- **It closes the loop, not just detects.** Detect → Diagnose → Prescribe → Verify → Self-assess:
+  a fix is proposed, actually replayed against a live endpoint, and the predicted-vs-observed
+  delta is scored — the loop reports on its own track record instead of just its findings.
+- **A human still approves every fix.** The operator screen (Loop Desk) binds each APPROVE/REJECT
+  decision to the exact report hash it was shown, so the write-back is auditable, not implicit.
+- **Two rules it can't break by construction** (not just convention — enforced by
+  `engine/selfcheck.py`): never ask a model for a fact the logs already record, and never touch
+  the metric definitions or the judge to make a number look better.
+- **Zero dependencies.** `engine/` and `screen/` are stdlib Python only, so the same code runs
+  untouched on a sealed corpus it's never seen.
 
 The full write-up, with figures from the running screen, is [`Final Report/Report.pdf`](Final%20Report/Report.pdf).
 

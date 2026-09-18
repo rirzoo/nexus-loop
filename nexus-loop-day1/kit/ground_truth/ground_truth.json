@@ -1,0 +1,233 @@
+{
+  "variant": "A",
+  "corpus_days": 56,
+  "epoch": "2026-06-01T00:00:00+00:00",
+  "faults": [
+    {
+      "id": "F1",
+      "kind": "regression",
+      "cause_class": "kb.gap",
+      "tenant": "acme-bank",
+      "cohort": {
+        "intent": "premium_card_info"
+      },
+      "onset_day": 34,
+      "duration_days": 11,
+      "signature": "new product line launches with no KB content; kb_lookup returns no confident hit; answers fall through to a generic reply",
+      "primary_effect": "cohort resolution_rate falls to ~0.3 against a tenant standard above 0.8 \u2014 exact figures in observed_effects.F1",
+      "aggregate_effect": "tenant containment moves ~2pt \u2014 invisible without cohorting",
+      "attributable_change": {
+        "kind": "kb",
+        "day": 34
+      },
+      "accepted_fix_classes": [
+        "kb.add",
+        "kb.synonym"
+      ],
+      "detection_window_days": [
+        34,
+        41
+      ]
+    },
+    {
+      "id": "F2",
+      "kind": "regression",
+      "cause_class": "tool.contract_break",
+      "tenant": "northwind-retail",
+      "cohort": {
+        "intent": "order_status",
+        "tool": "get_order_status"
+      },
+      "onset_day": 40,
+      "duration_days": 12,
+      "signature": "tool returns HTTP 200 with an empty payload on ~14% of calls; outcome is recorded 'ok' so every error-rate metric reads flat",
+      "primary_effect": "same-tool retry within session, then unresolved end",
+      "aggregate_effect": "tool_error_rate FLAT \u2014 the fault is invisible to the obvious metric and only shows in downstream behaviour",
+      "attributable_change": {
+        "kind": "tool",
+        "day": 40
+      },
+      "accepted_fix_classes": [
+        "tool.validate",
+        "tool.fallback"
+      ],
+      "detection_window_days": [
+        40,
+        47
+      ]
+    },
+    {
+      "id": "F3",
+      "kind": "regression",
+      "cause_class": "prompt.regression",
+      "tenant": "acme-bank",
+      "cohort": {
+        "agent_id": "acme_main_v3"
+      },
+      "onset_day": 46,
+      "duration_days": 10,
+      "signature": "prompt v4 makes the agent over-confirm; turns-to-resolve rises ~60% while resolution rate stays flat",
+      "primary_effect": "median turns ~4 -> ~6 (mean +58%); cost per session roughly +80%; resolution flat \u2014 exact figures in observed_effects.F3",
+      "aggregate_effect": "resolution FLAT \u2014 threshold alerting on outcome metrics misses this entirely; only a standard-relative measure sees it",
+      "attributable_change": {
+        "kind": "prompt",
+        "day": 46
+      },
+      "accepted_fix_classes": [
+        "prompt.edit",
+        "revert"
+      ],
+      "detection_window_days": [
+        46,
+        53
+      ]
+    }
+  ],
+  "decoys": [
+    {
+      "id": "D1",
+      "kind": "traffic_mix_shift",
+      "tenant": "acme-bank",
+      "onset_day": 22,
+      "duration_days": 10,
+      "signature": "campaign drives 5.0x branch_locator volume (a trivially contained intent); AGGREGATE containment RISES while every cohort is flat or slightly worse",
+      "correct_reading": "not a quality event in either direction \u2014 stratify by intent",
+      "penalty_if_reported": "false_alarm"
+    },
+    {
+      "id": "D2",
+      "kind": "load_event",
+      "tenant": "northwind-retail",
+      "onset_day": 12,
+      "duration_days": 4,
+      "signature": "flash sale, 4.0x volume; p95 latency doubles and timeouts rise, then self-corrects. Quality is flat throughout",
+      "correct_reading": "a reliability event for the platform view, not a quality regression; it self-corrects inside the sustain window",
+      "penalty_if_reported": "false_alarm_if_called_quality_regression"
+    },
+    {
+      "id": "D3",
+      "kind": "judge_version_boundary",
+      "tenant": "*",
+      "onset_day": 28,
+      "duration_days": 28,
+      "signature": "quality rubric v1 -> v2 is stricter; judged scores drop ~0.6 across BOTH tenants at once. judge_version is stamped on every judged value, so the information needed to refuse the comparison is present in the data",
+      "correct_reading": "do not trend judged quality across the boundary; re-score or segment by judge_version",
+      "penalty_if_reported": "false_alarm"
+    }
+  ],
+  "coverage_traps": [
+    {
+      "id": "C1",
+      "description": "v2 legacy flow traffic emits no tool_call rows at all.",
+      "true_coverage": {
+        "acme-bank": 0.72,
+        "northwind-retail": 0.93
+      },
+      "correct_behaviour": "any tool-derived metric must state coverage and exclude v2 traffic from the denominator, not silently include it",
+      "tolerance": 0.03
+    },
+    {
+      "id": "C2",
+      "description": "custom_dims.customer_ref is near-unique. The catalog declares a cardinality budget; grouping by it is a planner error.",
+      "correct_behaviour": "refuse the breakdown, cite the budget"
+    }
+  ],
+  "unanswerable_asks": [
+    {
+      "ask_id": "A11",
+      "ask": "What is our failover rate \u2014 how often did a primary model or tool fail and an alternate serve the user instead?",
+      "verdict": "NOT_MEASURABLE",
+      "why": "no failover mechanism exists, so no failover event is emitted. There is no primary/secondary path to observe.",
+      "nearest_proxy": "llm_retry events, which are QUALITY retries at a different temperature \u2014 they would under-report and read as '0% failover', i.e. as good news",
+      "required_event": {
+        "name": "failover",
+        "grain": "step",
+        "fields": [
+          "from_target",
+          "to_target",
+          "reason",
+          "recovered"
+        ],
+        "owner": "conversation-runtime"
+      }
+    }
+  ],
+  "fidelity_traps": [
+    {
+      "ask_id": "A09",
+      "ask": "How many users gave up out of frustration rather than getting what they wanted and leaving?",
+      "correct_fidelity": "judged",
+      "why": "abandonment is observable; the REASON for it is a judgment about meaning and must be a versioned judged signal with a calibration, not inferred from the session end code"
+    },
+    {
+      "ask_id": "A04",
+      "ask": "How often did a tool call fail?",
+      "correct_fidelity": "measured",
+      "why": "we executed the call. Answering this with a model is a Rule 1 violation."
+    }
+  ],
+  "observed_effects": {
+    "F1": {
+      "cohort_sessions": 531,
+      "cohort_resolution_in_window": 0.3087,
+      "tenant_resolution_before": 0.823,
+      "tenant_resolution_during": 0.7852,
+      "peer_intent_resolution_in_window": 0.757,
+      "kb_top_score_in_cohort": "see agent_steps.kb_top_score \u2014 sits in the 0.11-0.38 band"
+    },
+    "F2": {
+      "declared_tool_error_rate_before": 0.0145,
+      "declared_tool_error_rate_during": 0.0156,
+      "declared_metric_is_flat": true,
+      "order_status_resolution_before": 0.8522,
+      "order_status_resolution_during": 0.7755,
+      "discriminating_fields": [
+        "step.response_bytes",
+        "step.result_field_count",
+        "step.retry_count on a same-tool second call"
+      ]
+    },
+    "F3": {
+      "median_turns_before": 4.0,
+      "median_turns_during": 6.0,
+      "resolution_before": 0.7893,
+      "resolution_during": 0.8031,
+      "outcome_is_flat": true,
+      "cost_per_session_before": 0.04378,
+      "cost_per_session_during": 0.07994
+    },
+    "D1": {
+      "aggregate_resolution_before": 0.8118,
+      "aggregate_resolution_during": 0.8324,
+      "aggregate_moves": "UP",
+      "branch_locator_share_before": 0.1332,
+      "branch_locator_share_during": 0.4369,
+      "per_cohort_resolution_during": {
+        "branch_locator": 0.8988,
+        "balance_enquiry": 0.8529,
+        "txn_dispute": 0.625,
+        "product_info": 0.7237
+      }
+    },
+    "D2": {
+      "sessions_per_day_before": 779.5,
+      "sessions_per_day_during": 2696.5,
+      "resolution_before": 0.8054,
+      "resolution_during": 0.7769,
+      "tool_p95_ms_before": 1373,
+      "tool_p95_ms_during": 3157,
+      "quality_is_flat": true,
+      "self_corrects": true
+    },
+    "D3": {
+      "mean_quality_before": 3.881,
+      "mean_quality_after": 3.283,
+      "cause": "rubric v1 -> v2, not agent behaviour",
+      "both_tenants_simultaneously": true
+    },
+    "C1": {
+      "v3_share_acme": 0.7205,
+      "v3_share_northwind": 0.9308
+    }
+  }
+}

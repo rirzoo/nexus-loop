@@ -1,0 +1,441 @@
+{
+  "team": "level-2-reference",
+  "corpus": "A",
+  "generated_at": "2026-09-05T09:00:00Z",
+  "system_notes": "LEVEL 2 \u2014 Level 1 plus a mined standard, one prescribed fix, and that fix verified on the replay endpoint with the golden set clean.",
+  "metrics": [
+    {
+      "id": "m_containment",
+      "name": "Containment rate",
+      "ask_id": "A01",
+      "grain": "session",
+      "fidelity": "measured",
+      "coverage": {
+        "value": 1.0,
+        "basis": "session_end is present on every session, v2 and v3 alike"
+      },
+      "calibration": null,
+      "plan": {
+        "source": "corpus/sessions.jsonl.gz",
+        "filter": "session_end = 'resolved' OR (session_end = 'handoff' AND handoff_by_design = true)",
+        "denominator": "all sessions in scope",
+        "breakdowns": [
+          "intent",
+          "channel",
+          "agent_kind",
+          "agent_id"
+        ],
+        "alternatives_offered": [
+          "resolution_rate \u2014 excludes by-design handoffs entirely"
+        ]
+      }
+    },
+    {
+      "id": "m_tool_fail",
+      "name": "Tool failure rate",
+      "ask_id": "A04",
+      "grain": "step",
+      "fidelity": "measured",
+      "coverage": {
+        "value": 0.725,
+        "basis": "v2_flow sessions emit no tool_call rows and are excluded from the denominator, not counted as zero-error",
+        "excluded": [
+          "agent_kind = v2_flow"
+        ]
+      },
+      "calibration": null,
+      "plan": {
+        "source": "corpus/agent_steps.jsonl.gz WHERE step_type = 'tool_call'",
+        "filter": "outcome IN ('error','timeout')",
+        "denominator": "all tool_call steps on v3_agent sessions",
+        "breakdowns": [
+          "error_class",
+          "tool_name",
+          "channel",
+          "agent_id"
+        ]
+      }
+    },
+    {
+      "id": "m_useful_tool",
+      "name": "Tool answered with something",
+      "ask_id": "A04",
+      "grain": "step",
+      "fidelity": "derived",
+      "coverage": {
+        "value": 0.725,
+        "basis": "derived from tool_call rows, same v3-only coverage"
+      },
+      "calibration": null,
+      "plan": {
+        "source": "corpus/agent_steps.jsonl.gz WHERE step_type = 'tool_call'",
+        "filter": "outcome = 'ok' AND result_field_count = 0",
+        "denominator": "all tool_call steps with outcome = 'ok'",
+        "breakdowns": [
+          "tool_name",
+          "tool_version"
+        ],
+        "alternatives_offered": [
+          "catalog lists this as derivable_not_declared \u2014 we derived and declared it"
+        ]
+      }
+    },
+    {
+      "id": "m_turns",
+      "name": "Turns to resolve",
+      "ask_id": "A02",
+      "grain": "session",
+      "fidelity": "measured",
+      "coverage": {
+        "value": 1.0,
+        "basis": "turn count is present on every session"
+      },
+      "calibration": null,
+      "plan": {
+        "source": "corpus/sessions.jsonl.gz",
+        "filter": "session_end = 'resolved'",
+        "denominator": "n/a \u2014 this is a distribution, reported as median and p90",
+        "breakdowns": [
+          "intent",
+          "agent_id",
+          "prompt_version"
+        ]
+      }
+    },
+    {
+      "id": "m_quality",
+      "name": "Judged quality",
+      "ask_id": "A06",
+      "grain": "session",
+      "fidelity": "judged",
+      "coverage": {
+        "value": 1.0,
+        "basis": "scored on every session"
+      },
+      "calibration": {
+        "agreement": 0.87,
+        "n": 96,
+        "judge_version": "v1"
+      },
+      "plan": {
+        "source": "corpus/sessions.jsonl.gz",
+        "filter": "quality_score, SEGMENTED BY judge_version \u2014 never trended across the boundary",
+        "denominator": "sessions within one judge_version",
+        "breakdowns": [
+          "intent",
+          "judge_version"
+        ]
+      }
+    },
+    {
+      "id": "m_abandon_reason",
+      "name": "Abandonment with frustration",
+      "ask_id": "A09",
+      "grain": "session",
+      "fidelity": "judged",
+      "coverage": {
+        "value": 1.0,
+        "basis": "abandonment is measured; the REASON is judged and needs its own versioned rubric"
+      },
+      "calibration": {
+        "agreement": 0.71,
+        "n": 96,
+        "judge_version": "v1"
+      },
+      "plan": {
+        "source": "corpus/sessions.jsonl.gz JOIN corpus/turns.jsonl.gz",
+        "filter": "session_end = 'abandoned', then a judged rubric over the last three turns",
+        "denominator": "all abandoned sessions",
+        "breakdowns": [
+          "intent",
+          "channel"
+        ],
+        "alternatives_offered": [
+          "session_end='abandoned' alone is MEASURED but answers a different question"
+        ]
+      }
+    }
+  ],
+  "standard": [
+    {
+      "tenant": "acme-bank",
+      "cohort": {
+        "intent": "product_info"
+      },
+      "metric": "turns_to_resolve",
+      "exemplar_n": 412,
+      "golden_set_version": "gs_v1",
+      "best": 3.0,
+      "median": 5.0,
+      "deficit": 2.0,
+      "derivation": "top decile of resolved sessions by turns, no tool error, no kb miss, quality >= 4 within judge_version v1"
+    },
+    {
+      "tenant": "acme-bank",
+      "cohort": {
+        "intent": "product_info"
+      },
+      "metric": "resolution_rate",
+      "exemplar_n": 412,
+      "golden_set_version": "gs_v1",
+      "best": 0.94,
+      "median": 0.79,
+      "deficit": 0.15,
+      "derivation": "resolution rate of the exemplar cohort's intent-week strata"
+    },
+    {
+      "tenant": "northwind-retail",
+      "cohort": {
+        "intent": "order_status"
+      },
+      "metric": "resolution_rate",
+      "exemplar_n": 780,
+      "golden_set_version": "gs_v1",
+      "best": 0.95,
+      "median": 0.86,
+      "deficit": 0.09,
+      "derivation": "top decile weeks for this intent before any config change in the window"
+    },
+    {
+      "tenant": "acme-bank",
+      "cohort": {
+        "agent_id": "acme_main_v3"
+      },
+      "metric": "turns_to_resolve",
+      "exemplar_n": 1105,
+      "golden_set_version": "gs_v1",
+      "best": 3.0,
+      "median": 4.0,
+      "deficit": 1.0,
+      "derivation": "top decile of resolved sessions on this agent, prompt_version p_v3 only"
+    }
+  ],
+  "findings": [
+    {
+      "id": "f1",
+      "tenant": "acme-bank",
+      "cohort": {
+        "intent": "premium_card_info"
+      },
+      "metric": "resolution_rate",
+      "window": {
+        "from_day": 35,
+        "to_day": 45
+      },
+      "observed": 0.31,
+      "expected": 0.86,
+      "is_regression": true,
+      "severity": "critical",
+      "evidence": [
+        "cohort appears for the first time on day 34 and never reaches the tenant standard",
+        "kb_top_score in this cohort sits at 0.11-0.38 against a tenant median of 0.79",
+        "kb_hit is false on 100% of lookups in the cohort",
+        "config_timeline day 34: kb kb_2026_06_a -> kb_2026_06_c 'premium card launch content pack'"
+      ],
+      "impact": {
+        "conversations_affected": 239,
+        "share_of_traffic": 0.0418,
+        "downstream": {
+          "would_have_resolved_at_baseline": 120,
+          "unplanned_handoffs": 149,
+          "abandoned": 15
+        },
+        "cost_usd": 13.58,
+        "days_running": 11,
+        "derivation": "239 sessions matched the cohort over 11 days (4.2% of this tenant's traffic in the window). Observed resolution 0.314 against a baseline of 0.816 (this cohort has no before-period, so the baseline is other question-answering intents on the same agent in the same window), so 120 conversations that would have resolved did not. 149 ended in a handoff the agent was not built to make; 15 were abandoned. cost_usd is the sum over the cohort and covers v3 traffic only."
+      },
+      "audience": [
+        "agent_builder",
+        "business_owner"
+      ],
+      "if_nothing_changes": "At the observed rate this costs about 11 unresolved conversations a day in this cohort, and 62% of them reach a human who was not meant to be involved. The product line is new, so these are first impressions of it."
+    },
+    {
+      "id": "f3",
+      "tenant": "acme-bank",
+      "cohort": {
+        "intent": "branch_locator"
+      },
+      "metric": "resolution_rate",
+      "window": {
+        "from_day": 22,
+        "to_day": 32
+      },
+      "observed": 0.888,
+      "expected": 0.887,
+      "is_regression": false,
+      "not_a_regression_because": "aggregate containment rises 2.8pt in this window purely because branch_locator's share of traffic goes from 13% to 44%. Every per-intent cohort is flat within noise. This is a mix shift, not a quality change in either direction.",
+      "severity": "low",
+      "evidence": [
+        "branch_locator share 0.130 -> 0.437",
+        "no config change on acme-bank in the window"
+      ]
+    },
+    {
+      "id": "f4",
+      "tenant": "*",
+      "cohort": {},
+      "metric": "quality_score",
+      "window": {
+        "from_day": 28,
+        "to_day": 38
+      },
+      "observed": 3.3,
+      "expected": 3.88,
+      "is_regression": false,
+      "not_a_regression_because": "the drop is simultaneous across BOTH tenants, every intent and every channel, and coincides exactly with the judge quality_rubric v1 -> v2 change on day 28. We measured the rubric, not the agent. Quality is only trended within a judge_version from here on.",
+      "severity": "low",
+      "evidence": [
+        "config_timeline day 28: judge quality_rubric v1 -> v2",
+        "effect size identical on both tenants"
+      ]
+    },
+    {
+      "id": "f5",
+      "tenant": "northwind-retail",
+      "cohort": {},
+      "metric": "resolution_rate",
+      "window": {
+        "from_day": 12,
+        "to_day": 16
+      },
+      "observed": 0.78,
+      "expected": 0.792,
+      "is_regression": false,
+      "not_a_regression_because": "Volume is 3.5x baseline for four days and tool p95 latency doubles, but resolution and judged quality are flat and both recover the moment volume does. This is a load event for the platform view, not a quality regression.",
+      "severity": "low",
+      "evidence": [
+        "sessions/day 786 -> 2754",
+        "tool p95 1286ms -> 3021ms",
+        "resolution 0.792 -> 0.780, inside normal week-to-week spread"
+      ]
+    }
+  ],
+  "diagnoses": [
+    {
+      "id": "d1",
+      "finding_id": "f1",
+      "cause_class": "kb.gap",
+      "confidence": 0.91,
+      "attributed_change": {
+        "kind": "kb",
+        "day": 34
+      },
+      "evidence": [
+        "kb_hit false on every lookup in the cohort",
+        "no tool involved in this intent, so tool causes are excluded",
+        "peer intents on the same agent and same days are unaffected"
+      ]
+    },
+    {
+      "id": "d3",
+      "finding_id": "f3",
+      "cause_class": "traffic_mix",
+      "confidence": 0.95,
+      "attributed_change": null,
+      "evidence": [
+        "intent share moves, per-cohort rates do not"
+      ]
+    },
+    {
+      "id": "d4",
+      "finding_id": "f4",
+      "cause_class": "judge_change",
+      "confidence": 0.97,
+      "attributed_change": {
+        "kind": "judge",
+        "day": 28
+      },
+      "evidence": [
+        "both tenants, all cohorts, same day, same magnitude"
+      ]
+    },
+    {
+      "id": "d5",
+      "finding_id": "f5",
+      "cause_class": "load",
+      "confidence": 0.93,
+      "attributed_change": null,
+      "evidence": [
+        "volume spike with no config change",
+        "self-corrects with volume"
+      ]
+    }
+  ],
+  "prescriptions": [
+    {
+      "id": "p1",
+      "diagnosis_id": "d1",
+      "change_type": "kb.add",
+      "target": "premium_card_info",
+      "description": "Index the premium card product pack: fees, eligibility, benefits, comparison against the existing gold tier. 11 documents.",
+      "autonomy_rung": "L3",
+      "predicted_delta": {
+        "metric": "resolution_rate",
+        "from": 0.31,
+        "to": 0.84
+      },
+      "decision": {
+        "asking_approval_for": "Index the premium card product pack \u2014 11 documents \u2014 into the live knowledge base for the acme-bank agent.",
+        "risk_if_diagnosis_wrong": "Low. If the cause is not the knowledge gap, we have added correct content the agent did not have; the failure mode is that resolution does not move and we have spent a morning. No existing behaviour changes.",
+        "would_not_ship_if": "The replay shows any regression on the golden set, or if the premium-card questions turn out to need a policy decision the business has not made yet \u2014 in which case the right answer is a scripted handoff, not a knowledge article."
+      },
+      "approval": {
+        "verdict": "accepted",
+        "decided_by": "operator (demo)",
+        "reason": "Cheap, reversible, and the evidence is unambiguous \u2014 every retrieval in the cohort missed.",
+        "at": "2026-09-05T11:20:00Z"
+      }
+    }
+  ],
+  "verifications": [
+    {
+      "prescription_id": "p1",
+      "replay_run_id": "rp_5c9a1d3e",
+      "metric": "resolution_rate",
+      "before": 0.3412,
+      "after": 0.8391,
+      "golden_set_pass": true,
+      "verdict": "improved",
+      "prediction_error": -0.0079
+    }
+  ],
+  "gaps": [
+    {
+      "ask_id": "A11",
+      "verdict": "NOT_MEASURABLE",
+      "why": "No failover mechanism exists in the runtime, so no failover event is ever emitted. There is nothing in the corpus that records a primary path failing and an alternate being chosen, because that choice is never made.",
+      "nearest_proxy": "llm_call rows with retry_count > 0",
+      "why_the_proxy_misleads": "those are QUALITY retries \u2014 the same target re-issued after a malformed response \u2014 not a switch to an alternate target. Reporting them as failover would show a small non-zero rate that reads as 'failover is working', when the truth is that failover does not exist. A chart here would be worse than no chart.",
+      "required_event": {
+        "name": "failover",
+        "grain": "step",
+        "fields": [
+          "from_target",
+          "to_target",
+          "reason",
+          "recovered"
+        ],
+        "owner": "conversation-runtime"
+      }
+    },
+    {
+      "ask_id": "A03",
+      "verdict": "COVERAGE_TOO_LOW",
+      "why": "Cost per resolved conversation is only computable for v3 traffic \u2014 cost_usd lives on llm_call steps, which v2_flow sessions do not emit. On acme-bank that is 27.5% of conversations with no cost attached. We report the v3 figure with the denominator stated rather than a blended number that silently treats a quarter of traffic as free.",
+      "required_event": {
+        "name": "cost_rollup",
+        "grain": "session",
+        "fields": [
+          "cost_usd",
+          "source"
+        ],
+        "owner": "legacy-flow-runtime"
+      }
+    }
+  ],
+  "self_assessment": {
+    "cycles": 0,
+    "prescription_accuracy": {}
+  }
+}

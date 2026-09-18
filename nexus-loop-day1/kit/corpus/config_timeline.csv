@@ -1,0 +1,17 @@
+day,date,tenant,kind,target,from_value,to_value,note
+4,2026-06-05,acme-bank,kb,kb,kb_2026_05_a,kb_2026_06_a,scheduled KB refresh
+6,2026-06-07,northwind-retail,routing,nw_care_v3,rr_v2,rr_v3,routing weights retuned
+9,2026-06-10,acme-bank,model,acme_main_v3,sonnet-4.6,sonnet-5,planned model upgrade
+12,2026-06-13,northwind-retail,prompt,nw_orders_v3,p_v7,p_v8,tone tweak
+15,2026-06-16,acme-bank,tool,branch_lookup,1.4.0,1.4.1,patch release
+18,2026-06-19,northwind-retail,kb,kb,kb_2026_06_a,kb_2026_06_b,seasonal content
+23,2026-06-24,acme-bank,prompt,acme_cards_v3,p_v3,p_v4,clarified card wording
+26,2026-06-27,northwind-retail,model,nw_care_v3,sonnet-4.6,sonnet-5,planned model upgrade
+28,2026-06-29,*,judge,quality_rubric,v1,v2,stricter quality rubric rolled out
+34,2026-07-05,acme-bank,kb,kb,kb_2026_06_a,kb_2026_06_c,premium card launch content pack
+35,2026-07-06,northwind-retail,kb,kb,kb_2026_06_b,kb_2026_07_a,scheduled KB refresh
+40,2026-07-11,northwind-retail,tool,get_order_status,3.2.0,3.3.0,order service migration
+41,2026-07-12,acme-bank,routing,acme_main_v3,rr_v4,rr_v5,handoff group split
+46,2026-07-17,acme-bank,prompt,acme_main_v3,p_v3,p_v4,safety and confirmation wording
+49,2026-07-20,northwind-retail,prompt,nw_returns_v3,p_v5,p_v6,shorter confirmations
+52,2026-07-23,acme-bank,tool,get_balance,2.1.3,2.1.4,patch release

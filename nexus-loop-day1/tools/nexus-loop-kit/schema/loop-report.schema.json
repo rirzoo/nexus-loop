@@ -1,0 +1,643 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Nexus Loop Report",
+  "description": "The deliverable. FOUR sections are required \u2014 metrics, findings, diagnoses, gaps. The other four are optional and are where the remaining machine points live. Note that a finding you call a regression must carry its impact, its audience and the cost of inaction: a number without a decision attached is a measurement, not a finding.",
+  "type": "object",
+  "required": [
+    "team",
+    "corpus",
+    "metrics",
+    "findings",
+    "diagnoses",
+    "gaps"
+  ],
+  "properties": {
+    "team": {
+      "type": "string"
+    },
+    "corpus": {
+      "type": "string",
+      "description": "manifest.corpus_variant of the corpus you ran on"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "system_notes": {
+      "type": "string",
+      "description": "what is real, what is stubbed"
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Every metric your system authored, with the plan behind it.",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "ask_id",
+          "fidelity",
+          "coverage",
+          "plan"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "ask_id": {
+            "type": "string",
+            "description": "which ask in asks.md this answers"
+          },
+          "grain": {
+            "enum": [
+              "session",
+              "step",
+              "turn"
+            ]
+          },
+          "fidelity": {
+            "enum": [
+              "measured",
+              "judged",
+              "derived"
+            ]
+          },
+          "coverage": {
+            "type": "object",
+            "required": [
+              "value",
+              "basis"
+            ],
+            "properties": {
+              "value": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "basis": {
+                "type": "string"
+              },
+              "excluded": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "calibration": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "agreement",
+              "n"
+            ],
+            "properties": {
+              "agreement": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "n": {
+                "type": "integer"
+              },
+              "judge_version": {
+                "type": "string"
+              }
+            }
+          },
+          "plan": {
+            "type": "object",
+            "required": [
+              "source",
+              "filter",
+              "denominator"
+            ],
+            "properties": {
+              "source": {
+                "type": "string"
+              },
+              "filter": {
+                "type": "string"
+              },
+              "denominator": {
+                "type": "string"
+              },
+              "breakdowns": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "alternatives_offered": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "standard": {
+      "type": "array",
+      "description": "OPTIONAL. What 'good' is for this deployment, mined from its own best conversations.",
+      "items": {
+        "type": "object",
+        "required": [
+          "cohort",
+          "metric",
+          "best",
+          "median"
+        ],
+        "properties": {
+          "tenant": {
+            "type": "string"
+          },
+          "cohort": {
+            "type": "object"
+          },
+          "metric": {
+            "type": "string"
+          },
+          "exemplar_n": {
+            "type": "integer"
+          },
+          "golden_set_version": {
+            "type": "string"
+          },
+          "best": {
+            "type": "number",
+            "description": "the top-decile value \u2014 the standard"
+          },
+          "median": {
+            "type": "number"
+          },
+          "deficit": {
+            "type": "number"
+          },
+          "derivation": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "description": "Everything your system flagged. Include the things you decided were NOT regressions \u2014 is_regression:false is how you get specificity credit.",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "tenant",
+          "cohort",
+          "metric",
+          "window",
+          "is_regression"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenant": {
+            "type": "string"
+          },
+          "cohort": {
+            "type": "object",
+            "description": "e.g. {\"intent\":\"order_status\"}"
+          },
+          "metric": {
+            "type": "string"
+          },
+          "window": {
+            "type": "object",
+            "required": [
+              "from_day",
+              "to_day"
+            ],
+            "properties": {
+              "from_day": {
+                "type": "integer"
+              },
+              "to_day": {
+                "type": "integer"
+              }
+            }
+          },
+          "observed": {
+            "type": "number"
+          },
+          "expected": {
+            "type": "number"
+          },
+          "is_regression": {
+            "type": "boolean"
+          },
+          "not_a_regression_because": {
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "impact": {
+            "type": "object",
+            "description": "REQUIRED when is_regression is true. Every number here must be computed from the corpus, never asserted. This is the difference between a measurement and a decision.",
+            "required": [
+              "conversations_affected",
+              "share_of_traffic",
+              "derivation"
+            ],
+            "properties": {
+              "conversations_affected": {
+                "type": "integer"
+              },
+              "share_of_traffic": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "of the tenant's traffic in the window"
+              },
+              "downstream": {
+                "type": "object",
+                "description": "the consequence, in counts: unplanned handoffs, abandons, extra turns, repeat contacts"
+              },
+              "cost_usd": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "description": "only if you can derive it; null is an honest answer"
+              },
+              "days_running": {
+                "type": "integer"
+              },
+              "derivation": {
+                "type": "string",
+                "description": "how each number above was computed, so a reader can check it"
+              }
+            }
+          },
+          "audience": {
+            "type": "array",
+            "minItems": 1,
+            "description": "REQUIRED when is_regression is true. Who needs to act on this.",
+            "items": {
+              "enum": [
+                "business_owner",
+                "agent_builder",
+                "platform_owner"
+              ]
+            }
+          },
+          "if_nothing_changes": {
+            "type": "string",
+            "description": "REQUIRED when is_regression is true. What this costs if nobody acts, grounded in the numbers above."
+          }
+        },
+        "if": {
+          "properties": {
+            "is_regression": {
+              "const": true
+            }
+          },
+          "required": [
+            "is_regression"
+          ]
+        },
+        "then": {
+          "required": [
+            "impact",
+            "audience",
+            "if_nothing_changes"
+          ]
+        }
+      }
+    },
+    "diagnoses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "finding_id",
+          "cause_class"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "finding_id": {
+            "type": "string"
+          },
+          "cause_class": {
+            "enum": [
+              "kb.gap",
+              "tool.contract_break",
+              "tool.outage",
+              "prompt.regression",
+              "model.change",
+              "routing.error",
+              "traffic_mix",
+              "load",
+              "judge_change",
+              "unknown"
+            ]
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "attributed_change": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "day": {
+                "type": "integer"
+              }
+            }
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "prescriptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "diagnosis_id",
+          "change_type",
+          "target",
+          "predicted_delta",
+          "decision"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "diagnosis_id": {
+            "type": "string"
+          },
+          "change_type": {
+            "enum": [
+              "kb.add",
+              "kb.synonym",
+              "prompt.edit",
+              "tool.validate",
+              "tool.fallback",
+              "routing.change",
+              "revert",
+              "no_action"
+            ]
+          },
+          "target": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "autonomy_rung": {
+            "enum": [
+              "L0",
+              "L1",
+              "L2",
+              "L3",
+              "L4"
+            ]
+          },
+          "predicted_delta": {
+            "type": "object",
+            "required": [
+              "metric",
+              "from",
+              "to"
+            ],
+            "properties": {
+              "metric": {
+                "type": "string"
+              },
+              "from": {
+                "type": "number"
+              },
+              "to": {
+                "type": "number"
+              }
+            }
+          },
+          "decision": {
+            "type": "object",
+            "description": "What a human is actually being asked to approve, and the honest case against approving it.",
+            "required": [
+              "asking_approval_for",
+              "risk_if_diagnosis_wrong",
+              "would_not_ship_if"
+            ],
+            "properties": {
+              "asking_approval_for": {
+                "type": "string",
+                "description": "in the operator's words"
+              },
+              "risk_if_diagnosis_wrong": {
+                "type": "string"
+              },
+              "would_not_ship_if": {
+                "type": "string",
+                "description": "the condition that should stop this change"
+              }
+            }
+          },
+          "approval": {
+            "type": "object",
+            "description": "Recorded from the approval gate on your screen \u2014 a real human decision, with a reason. A rejection is as good an answer as an acceptance.",
+            "properties": {
+              "verdict": {
+                "enum": [
+                  "accepted",
+                  "rejected",
+                  "deferred"
+                ]
+              },
+              "decided_by": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "at": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "description": "OPTIONAL. "
+    },
+    "verifications": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "prescription_id",
+          "replay_run_id",
+          "verdict"
+        ],
+        "properties": {
+          "prescription_id": {
+            "type": "string"
+          },
+          "replay_run_id": {
+            "type": "string",
+            "description": "run_id returned by the replay endpoint"
+          },
+          "metric": {
+            "type": "string"
+          },
+          "before": {
+            "type": "number"
+          },
+          "after": {
+            "type": "number"
+          },
+          "golden_set_pass": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "verdict": {
+            "enum": [
+              "improved",
+              "no_effect",
+              "regressed"
+            ]
+          },
+          "prediction_error": {
+            "type": "number",
+            "description": "predicted delta minus observed delta"
+          }
+        }
+      },
+      "description": "OPTIONAL. "
+    },
+    "gaps": {
+      "type": "array",
+      "description": "Everything you determined you cannot measure. This is a deliverable, not an apology.",
+      "items": {
+        "type": "object",
+        "required": [
+          "ask_id",
+          "verdict",
+          "why"
+        ],
+        "properties": {
+          "ask_id": {
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "NOT_MEASURABLE",
+              "REQUIRES_NEW_JUDGE",
+              "COVERAGE_TOO_LOW",
+              "CARDINALITY_REFUSED"
+            ]
+          },
+          "why": {
+            "type": "string"
+          },
+          "nearest_proxy": {
+            "type": "string"
+          },
+          "why_the_proxy_misleads": {
+            "type": "string"
+          },
+          "required_event": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "grain": {
+                "type": "string"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "owner": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "self_assessment": {
+      "type": "object",
+      "required": [],
+      "description": "OPTIONAL \u2014 the bonus round. The return arrow. What did the loop predict, what happened, and what did it learn about itself.",
+      "properties": {
+        "cycles": {
+          "type": "integer"
+        },
+        "prescription_accuracy": {
+          "type": "object",
+          "description": "keyed by change_type",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "n": {
+                "type": "integer"
+              },
+              "hit_rate": {
+                "type": "number"
+              },
+              "mean_prediction_error": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "downweighted": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "change types the loop now trusts less, and why"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

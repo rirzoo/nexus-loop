@@ -5,7 +5,4 @@ engine/out/
 
 # provided docs/spec kept local — only REPORT.md and the PS pdf are tracked
 CLAUDE.md
-PLAN.md
-PS.md
-TEAM_QA_LOG.md
-LEGALITY_HARDENING.md
+Docs/ 
